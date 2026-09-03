@@ -10,7 +10,6 @@
 #include <immintrin.h>
 
 #include "deblock.h"
-#include "emmintrin.h"
 #include "global.h"
 
 
@@ -32,7 +31,7 @@
 #define mullo16(a, b) _mm_mullo_epi16(a, b)
 
 
-#define TRANSPOSE8x8(l0, l1, l2, l3) do {                                                                \
+#define TRANSPOSE8x8_SSE(l0, l1, l2, l3) do {                                                                \
     __m128i shuffle = _mm_set_epi8(15,11,7,3, 14,10,6,2, 13,9,5,1, 12,8,4,0);                            \
                                                                                                          \
     __m128i t0 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0b10001000)); \
@@ -61,7 +60,7 @@
 
 typedef struct {
     __m128i c0, c1, c2, c3, c4, c5, c6, c7;
-} strided_load_t ;
+} strided_load_sse_t ;
 
 /** load p0,p1,p2,q0,q1,q2 columns in registers
  *
@@ -69,13 +68,13 @@ typedef struct {
  *  we instead load the two neighboring 8x8 blocks and transpose them. this should be faster than a 16x16 transform,
  *  which is probably slow here (64 simd ops with avx512, can't imagine with sse)
  */
-static always_inline strided_load_t load_strided_16(uint8_t *src, int stride) {
+static always_inline strided_load_sse_t load_strided_sse_16(uint8_t *src, int stride) {
     __m128i l0 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[0*stride]), _mm_loadu_si64(&src[1*stride]));
     __m128i l1 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[2*stride]), _mm_loadu_si64(&src[3*stride]));
     __m128i l2 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[4*stride]), _mm_loadu_si64(&src[5*stride]));
     __m128i l3 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[6*stride]), _mm_loadu_si64(&src[7*stride]));
 
-    TRANSPOSE8x8(l0, l1, l2, l3)
+    TRANSPOSE8x8_SSE(l0, l1, l2, l3)
 
 
     __m128i l4 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[ 8*stride]), _mm_loadu_si64(&src[ 9*stride]));
@@ -83,9 +82,9 @@ static always_inline strided_load_t load_strided_16(uint8_t *src, int stride) {
     __m128i l6 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[12*stride]), _mm_loadu_si64(&src[13*stride]));
     __m128i l7 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[14*stride]), _mm_loadu_si64(&src[15*stride]));
 
-    TRANSPOSE8x8(l4, l5, l6, l7)
+    TRANSPOSE8x8_SSE(l4, l5, l6, l7)
 
-    return (strided_load_t) {
+    return (strided_load_sse_t) {
     _mm_unpacklo_epi64(l0, l4),
     _mm_unpackhi_epi64(l0, l4),
     _mm_unpacklo_epi64(l1, l5),
@@ -97,13 +96,13 @@ static always_inline strided_load_t load_strided_16(uint8_t *src, int stride) {
     };
 }
 
-static always_inline void store_strided_16(uint8_t *dst, int stride, strided_load_t store) {
+static always_inline void store_strided_sse_16(uint8_t *dst, int stride, strided_load_sse_t store) {
     __m128i l0 = _mm_unpacklo_epi64(store.c0, store.c1);
     __m128i l1 = _mm_unpacklo_epi64(store.c2, store.c3);
     __m128i l2 = _mm_unpacklo_epi64(store.c4, store.c5);
     __m128i l3 = _mm_unpacklo_epi64(store.c6, store.c7);
 
-    TRANSPOSE8x8(l0, l1, l2, l3)
+    TRANSPOSE8x8_SSE(l0, l1, l2, l3)
     _mm_storeu_si64(&dst[0*stride], _mm_unpacklo_epi64(l0, l0));
     _mm_storeu_si64(&dst[1*stride], _mm_unpackhi_epi64(l0, l0));
     _mm_storeu_si64(&dst[2*stride], _mm_unpacklo_epi64(l1, l1));
@@ -118,7 +117,7 @@ static always_inline void store_strided_16(uint8_t *dst, int stride, strided_loa
     l2 = _mm_unpackhi_epi64(store.c4, store.c5);
     l3 = _mm_unpackhi_epi64(store.c6, store.c7);
 
-    TRANSPOSE8x8(l0, l1, l2, l3);
+    TRANSPOSE8x8_SSE(l0, l1, l2, l3);
     _mm_storeu_si64(&dst[ 8*stride], _mm_unpacklo_epi64(l0, l0));
     _mm_storeu_si64(&dst[ 9*stride], _mm_unpackhi_epi64(l0, l0));
     _mm_storeu_si64(&dst[10*stride], _mm_unpacklo_epi64(l1, l1));
@@ -129,17 +128,17 @@ static always_inline void store_strided_16(uint8_t *dst, int stride, strided_loa
     _mm_storeu_si64(&dst[15*stride], _mm_unpackhi_epi64(l3, l3));
 }
 
-static always_inline strided_load_t load_strided_8(uint8_t *src, int stride) {
+static always_inline strided_load_sse_t load_strided_sse_8(uint8_t *src, int stride) {
     __m128i zero_reg = _mm_setzero_si128();
     __m128i l0 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[0*stride]), _mm_loadu_si64(&src[1*stride]));
     __m128i l1 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[2*stride]), _mm_loadu_si64(&src[3*stride]));
     __m128i l2 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[4*stride]), _mm_loadu_si64(&src[5*stride]));
     __m128i l3 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[6*stride]), _mm_loadu_si64(&src[7*stride]));
 
-    TRANSPOSE8x8(l0, l1, l2, l3)
+    TRANSPOSE8x8_SSE(l0, l1, l2, l3)
 
     // directly convert to epi16
-    return (strided_load_t) {
+    return (strided_load_sse_t) {
         _mm_unpacklo_epi8(l0, zero_reg),
         _mm_unpackhi_epi8(l0, zero_reg),
         _mm_unpacklo_epi8(l1, zero_reg),
@@ -151,14 +150,14 @@ static always_inline strided_load_t load_strided_8(uint8_t *src, int stride) {
     };
 }
 
-static always_inline void store_strided_8(uint8_t *dst, int stride, strided_load_t store) {
+static always_inline void store_strided_sse_8(uint8_t *dst, int stride, strided_load_sse_t store) {
     __m128i zero_reg = _mm_setzero_si128();
     __m128i l0 = _mm_unpacklo_epi64(_mm_packus_epi16(store.c0, zero_reg), _mm_packus_epi16(store.c1, zero_reg));
     __m128i l1 = _mm_unpacklo_epi64(_mm_packus_epi16(store.c2, zero_reg), _mm_packus_epi16(store.c3, zero_reg));
     __m128i l2 = _mm_unpacklo_epi64(_mm_packus_epi16(store.c4, zero_reg), _mm_packus_epi16(store.c5, zero_reg));
     __m128i l3 = _mm_unpacklo_epi64(_mm_packus_epi16(store.c6, zero_reg), _mm_packus_epi16(store.c7, zero_reg));
 
-    TRANSPOSE8x8(l0, l1, l2, l3)
+    TRANSPOSE8x8_SSE(l0, l1, l2, l3)
     _mm_storeu_si64(&dst[0*stride], l0);
     _mm_storeu_si64(&dst[1*stride], _mm_unpackhi_epi64(l0, zero_reg));
     _mm_storeu_si64(&dst[2*stride], l1);
@@ -298,7 +297,7 @@ void deblock_edge_weak_luma_v_sse4(uint8_t *dst, int stride, int alpha, int beta
 
 
     __m128i p0, p1, p2, q0, q1, q2;
-    strided_load_t load = load_strided_16(&dst[-3], stride);
+    strided_load_sse_t load = load_strided_sse_16(&dst[-3], stride);
     p2 = load.c0; p1 = load.c1; p0 = load.c2;
     q0 = load.c3; q1 = load.c4; q2 = load.c5;
 
@@ -382,8 +381,8 @@ void deblock_edge_weak_luma_v_sse4(uint8_t *dst, int stride, int alpha, int beta
     q0 = _mm_blendv_epi8(q0, _mm_packus_epi16(q0_lo, q0_hi), filter_cond);
     q1 = _mm_blendv_epi8(q1, _mm_packus_epi16(q1_lo, q1_hi), filter_cond);
 
-    strided_load_t store = (strided_load_t) {p2, p1, p0, q0, q1, q2, load.c6, load.c7};
-    store_strided_16(&dst[-3], stride, store);
+    strided_load_sse_t store = (strided_load_sse_t) {p2, p1, p0, q0, q1, q2, load.c6, load.c7};
+    store_strided_sse_16(&dst[-3], stride, store);
 }
 
 
@@ -539,7 +538,7 @@ void deblock_edge_strong_luma_v_sse4(uint8_t *dst, int stride, int alpha, int be
     __m128i zero_reg = _mm_setzero_si128();
 
     __m128i p0, p1, p2, p3, q0, q1, q2, q3;
-    strided_load_t load = load_strided_16(&dst[-4], stride);
+    strided_load_sse_t load = load_strided_sse_16(&dst[-4], stride);
     p3 = load.c0; p2 = load.c1; p1 = load.c2; p0 = load.c3;
     q0 = load.c4; q1 = load.c5; q2 = load.c6; q3 = load.c7;
 
@@ -619,8 +618,8 @@ void deblock_edge_strong_luma_v_sse4(uint8_t *dst, int stride, int alpha, int be
     q2 = _mm_blendv_epi8(q2, _mm_packus_epi16(q2_lo, q2_hi), filter_cond);
 
 
-    strided_load_t store = (strided_load_t) {p3, p2, p1, p0, q0, q1, q2, q3};
-    store_strided_16(&dst[-4], stride, store);
+    strided_load_sse_t store = (strided_load_sse_t) {p3, p2, p1, p0, q0, q1, q2, q3};
+    store_strided_sse_16(&dst[-4], stride, store);
 }
 
 
@@ -663,7 +662,7 @@ void deblock_edge_weak_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int be
     __m128i zero_reg = _mm_setzero_si128();
 
     __m128i p0, p1, q0, q1;
-    strided_load_t load = load_strided_8(&dst[-2], stride);
+    strided_load_sse_t load = load_strided_sse_8(&dst[-2], stride);
     p1 = load.c0;
     p0 = load.c1;
     q0 = load.c2;
@@ -690,8 +689,8 @@ void deblock_edge_weak_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int be
     p0 = _mm_blendv_epi8(p0, _mm_add_epi16(p0, delta), filter_cond);
     q0 = _mm_blendv_epi8(q0, _mm_sub_epi16(q0, delta), filter_cond);
 
-    strided_load_t store = (strided_load_t) {p1, p0, q0, q1, load.c4, load.c5, load.c6, load.c7};
-    store_strided_8(&dst[-2], stride, store);
+    strided_load_sse_t store = (strided_load_sse_t) {p1, p0, q0, q1, load.c4, load.c5, load.c6, load.c7};
+    store_strided_sse_8(&dst[-2], stride, store);
 }
 
 void deblock_edge_strong_chroma_h_sse4(uint8_t *dst, int stride, int alpha, int beta) {
@@ -725,7 +724,7 @@ void deblock_edge_strong_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int 
     __m128i zero_reg = _mm_setzero_si128();
 
     __m128i p0, p1, q0, q1;
-    strided_load_t load = load_strided_8(&dst[-2], stride);
+    strided_load_sse_t load = load_strided_sse_8(&dst[-2], stride);
     p1 = load.c0;
     p0 = load.c1;
     q0 = load.c2;
@@ -746,6 +745,6 @@ void deblock_edge_strong_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int 
     p0 = _mm_blendv_epi8(p0, p0_res, filter_cond);
     q0 = _mm_blendv_epi8(q0, q0_res, filter_cond);
 
-    strided_load_t store = (strided_load_t) {p1, p0, q0, q1, load.c4, load.c5, load.c6, load.c7};
-    store_strided_8(&dst[-2], stride, store);
+    strided_load_sse_t store = (strided_load_sse_t) {p1, p0, q0, q1, load.c4, load.c5, load.c6, load.c7};
+    store_strided_sse_8(&dst[-2], stride, store);
 }
