@@ -4,7 +4,7 @@
 
 
 
-#include "deblock.h"
+#include "loopfilter.h"
 
 
 #include "dpb.h"
@@ -94,7 +94,7 @@ static always_inline bool mv_diff_g4(MotionVector mv1, MotionVector mv2) {
 
 
 
-always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_8x8, int idx_n_8x8, const Undo264Context *ctx) {
+static always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_8x8, int idx_n_8x8, const Undo264Context *ctx) {
     const MotionVector mvL0_0 = ctx->curr_pic->motion_info[mbAddr][idx].mvs[L0];
     const MotionVector mvL1_0 = ctx->curr_pic->motion_info[mbAddr][idx].mvs[L1];
     const Picture *picL0_0    = ctx->curr_pic->motion_info[mbAddr][idx].ref_pics[L0];
@@ -116,8 +116,7 @@ always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_
 
     bool same_pics = same_ref_pics(picL0_0, picL1_0, picL0_1, picL1_1);
 
-    return ((
-        	(!same_pics) ||
+    return  (!same_pics) ||
             (nbMV0 != nbMV1) || // different number of MVs
             ((nbMV0 == 1 && nbMV1 == 1) && mv_diff_g4(singleMV0, singleMV1)) || // one MV on each side and abs(mv0-mv1) >= 4 for x or y
             ((nbMV0 == 2 && nbMV1 == 2) && !same_ref_pics_one_block(mvL0_1.ref_idx, mvL1_1.ref_idx, ctx) &&
@@ -125,8 +124,7 @@ always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_
                   (mvL0_0.ref_idx != mvL0_1.ref_idx && (mv_diff_g4(mvL0_0, mvL1_1) || mv_diff_g4(mvL1_0, mvL0_1))))) ||
             ((nbMV0 == 2 && nbMV1 == 2) && same_ref_pics_one_block(mvL0_0.ref_idx, mvL1_0.ref_idx, ctx) &&
                  ((mv_diff_g4(mvL0_0, mvL0_1) || mv_diff_g4(mvL1_0, mvL1_1)) &&
-                  (mv_diff_g4(mvL0_1, mvL1_0) || mv_diff_g4(mvL1_1, mvL0_0))))
-        )) * 1;
+                  (mv_diff_g4(mvL0_1, mvL1_0) || mv_diff_g4(mvL1_1, mvL0_0))));
 }
 
 /**
@@ -138,7 +136,7 @@ always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_
  * @param blkIdx8x8  initial 8x8 block_index in current mb
  * @param blkIdx8x8N initial 8x8 block index in neighbor mb
  */
-always_inline void derive_low_bS_list(int mbAddr, int mbAddrN, int blkIdx, int blkIdxN, int blkIdx8x8, int blkIdx8x8N,
+void derive_low_bS_list(int mbAddr, int mbAddrN, int blkIdx, int blkIdxN, int blkIdx8x8, int blkIdx8x8N,
                         bool vertical, int bS_list[4], const Undo264Context *ctx) {
 
     MacroblockMetadata meta   = ctx->mb_metadata[mbAddr];
@@ -232,7 +230,7 @@ void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264
     uint8_t *cb_base_dst   = &pic->cb[chroma_pos];
     uint8_t *cr_base_dst   = &pic->cr[chroma_pos];
 
-    int bS_list[4];
+    int bS_list[4] = {0, 0, 0, 0};
 
     uint8_t alphaLeft[3], betaLeft[3], indexALeft[3];
     uint8_t alphaTop[3],  betaTop[3],  indexATop[3];

@@ -22,9 +22,9 @@
 #undef HEIGHT
 
 #include "sse4/transform_sse4.c"
-#include "sse4/deblock_edge_sse4.c"
+#include "sse4/deblock_sse4.c"
 
-#include "avx2/deblock_edge_avx2.c"
+#include "avx2/deblock_avx2.c"
 
 
 static void dsp_init_x86(DSPContext *dsp) {

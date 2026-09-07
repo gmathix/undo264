@@ -6,7 +6,7 @@
 
 #include <immintrin.h>
 
-#include "deblock.h"
+#include "loopfilter.h"
 #include "global.h"
 
 

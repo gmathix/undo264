@@ -9,7 +9,7 @@
 
 #include <immintrin.h>
 
-#include "deblock.h"
+#include "loopfilter.h"
 #include "global.h"
 
 
@@ -31,7 +31,7 @@
 #define mullo16(a, b) _mm_mullo_epi16(a, b)
 
 
-#define TRANSPOSE8x8_SSE(l0, l1, l2, l3) do {                                                                \
+#define TRANSPOSE8x8_SSE(l0, l1, l2, l3) do {                                                            \
     __m128i shuffle = _mm_set_epi8(15,11,7,3, 14,10,6,2, 13,9,5,1, 12,8,4,0);                            \
                                                                                                          \
     __m128i t0 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0b10001000)); \

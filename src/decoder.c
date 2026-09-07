@@ -18,7 +18,7 @@
 
 #include "cavlc.h"
 #include "cabac.h"
-#include "deblock.h"
+#include "loopfilter.h"
 #include "intra.h"
 #include "picture.h"
 
