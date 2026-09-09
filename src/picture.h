@@ -9,7 +9,6 @@
 #include "global.h"
 
 #include "decoder.h"
-#include "motion_info.h"
 #include "ps.h"
 
 typedef struct Picture {
@@ -18,12 +17,12 @@ typedef struct Picture {
 	uint8_t   *cb;
 	uint8_t   *cr;
 
-	MotionInfo   (*motion_info) [16];
 	int *mb_types;
 	bool (*pred_flags) [2][4];
 
 	int16_t (*motion_val)[2][16][2];
 	int8_t (*ref_idx)   [2][16];
+	struct Picture *(*ref_pics)[2][16];
 
 
     int nal_ref_idc;

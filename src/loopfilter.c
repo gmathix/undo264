@@ -10,7 +10,6 @@
 #include "dpb.h"
 #include "dsp_init.h"
 #include "mb.h"
-#include "motion_info.h"
 
 
 #include "util/mbutil.h"
@@ -93,17 +92,23 @@ static always_inline bool mv_diff_g4(MotionVector mv1, MotionVector mv2) {
 }
 
 
+static always_inline MotionVector get_mv(int mbAddr, int idx, int list, Picture *pic) {
+    return (MotionVector) {
+        pic->ref_idx[mbAddr][list][idx],
+        pic->motion_val[mbAddr][list][idx][0], pic->motion_val[mbAddr][list][idx][1]
+    };
+}
 
 static always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_8x8, int idx_n_8x8, const Undo264Context *ctx) {
-    const MotionVector mvL0_0 = ctx->curr_pic->motion_info[mbAddr][idx].mvs[L0];
-    const MotionVector mvL1_0 = ctx->curr_pic->motion_info[mbAddr][idx].mvs[L1];
-    const Picture *picL0_0    = ctx->curr_pic->motion_info[mbAddr][idx].ref_pics[L0];
-    const Picture *picL1_0    = ctx->curr_pic->motion_info[mbAddr][idx].ref_pics[L1];
+    const MotionVector mvL0_0 = get_mv(mbAddr, idx, L0, ctx->curr_pic);
+    const MotionVector mvL1_0 = get_mv(mbAddr, idx, L1, ctx->curr_pic);
+    const Picture *picL0_0    = ctx->curr_pic->ref_pics[mbAddr][L0][idx];
+    const Picture *picL1_0    = ctx->curr_pic->ref_pics[mbAddr][L1][idx];
 
-    const MotionVector mvL0_1 = ctx->curr_pic->motion_info[mbAddrN][idx_n].mvs[L0];
-    const MotionVector mvL1_1 = ctx->curr_pic->motion_info[mbAddrN][idx_n].mvs[L1];
-    const Picture *picL0_1    = ctx->curr_pic->motion_info[mbAddrN][idx_n].ref_pics[L0];
-    const Picture *picL1_1    = ctx->curr_pic->motion_info[mbAddrN][idx_n].ref_pics[L1];
+    const MotionVector mvL0_1 = get_mv(mbAddrN, idx_n, L0, ctx->curr_pic);
+    const MotionVector mvL1_1 = get_mv(mbAddrN, idx_n, L1, ctx->curr_pic);
+    const Picture *picL0_1    = ctx->curr_pic->ref_pics[mbAddrN][L0][idx_n];
+    const Picture *picL1_1    = ctx->curr_pic->ref_pics[mbAddrN][L1][idx_n];
 
     int flagL0_0 = ctx->curr_pic->pred_flags[mbAddr][L0][idx_8x8];
     int flagL1_0 = ctx->curr_pic->pred_flags[mbAddr][L1][idx_8x8];

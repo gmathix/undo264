@@ -308,20 +308,12 @@ static always_inline void reset_mb(Macroblock *mb, int mbAddr, const Undo264Cont
 
 
 static void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
-    MotionInfo *motion_info = ctx->curr_pic->motion_info[mbAddr];
     for (int i = 0; i < 16; i++) {
-        motion_info[i].mvs[L0] = (MotionVector) {-1, 0, 0};
-        motion_info[i].mvs[L1] = (MotionVector) {-1, 0, 0};
-        motion_info[i].ref_pics[L0] = &EMPTY_PICTURE;
-        motion_info[i].ref_pics[L1] = &EMPTY_PICTURE;
-
-        ctx->curr_pic->motion_val[mbAddr][L0][i][0] = 0;
-        ctx->curr_pic->motion_val[mbAddr][L0][i][1] = 0;
-        ctx->curr_pic->motion_val[mbAddr][L1][i][0] = 0;
-        ctx->curr_pic->motion_val[mbAddr][L1][i][1] = 0;
-        ctx->curr_pic->ref_idx[mbAddr][L0][i] = -1;
-        ctx->curr_pic->ref_idx[mbAddr][L1][i] = -1;
+        ctx->curr_pic->ref_pics[mbAddr][L0][i] = &EMPTY_PICTURE;
+        ctx->curr_pic->ref_pics[mbAddr][L1][i] = &EMPTY_PICTURE;
     }
+    memset(ctx->curr_pic->motion_val[mbAddr], 0, 2 * 16 * 2 * sizeof(int16_t));
+    memset(ctx->curr_pic->ref_idx[mbAddr], -1, 2 * 16 * sizeof(int8_t));
     memset(&ctx->curr_pic->pred_flags[mbAddr][L0][0], false, 4);
     memset(&ctx->curr_pic->pred_flags[mbAddr][L1][0], false, 4);
 }

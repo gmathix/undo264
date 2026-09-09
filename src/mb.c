@@ -383,8 +383,7 @@ void decode_p_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx
 
             for (int part = 0; part < mb->u.pb.mb_info.part_count; part++) {
                 int pos4x4 = part * ((w == 8) * 2 + (h == 8) * 8);
-                MotionVector mv = pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
-                mv = (MotionVector) {
+                MotionVector mv = (MotionVector) {
                     pic->ref_idx[mb->mbAddr][L0][pos4x4],
                     pic->motion_val[mb->mbAddr][L0][pos4x4][0],
                     pic->motion_val[mb->mbAddr][L0][pos4x4][1],
@@ -408,8 +407,7 @@ void decode_p_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx
                     int pos4x4 = map_4x4[part*4] + (subW == 8 && subH == 4) * (subPart * 4) +
                                                    (subW == 4 && subH == 8) * (subPart) +
                                                    (subW == 4 && subH == 4) * (subPart + (subPart/2)*2);
-                    MotionVector mv = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
-                    mv = (MotionVector) {
+                    MotionVector mv = (MotionVector) {
                         pic->ref_idx[mb->mbAddr][L0][pos4x4],
                         pic->motion_val[mb->mbAddr][L0][pos4x4][0],
                         pic->motion_val[mb->mbAddr][L0][pos4x4][1],
@@ -514,8 +512,7 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                 if (l0 + l1 == 1) {
                     int list = l0 ? L0 : L1;
 
-                    MotionVector mv = pic->motion_info[mb->mbAddr][pos4x4].mvs[list];
-                    mv = (MotionVector) {
+                    MotionVector mv = (MotionVector) {
                         pic->ref_idx[mb->mbAddr][list][pos4x4],
                         pic->motion_val[mb->mbAddr][list][pos4x4][0],
                         pic->motion_val[mb->mbAddr][list][pos4x4][1],
@@ -528,14 +525,12 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                         DISPATCH_PART_CHROMA(inter_pred_chroma_single, w / 2, h / 2, mb, pos4x4, mv, list, scratch_buf_chroma, ctx);
                     }
                 } else if (l0 + l1 == 2) {
-                    MotionVector mvL0 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
-                    MotionVector mvL1 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L1];
-                    mvL0 = (MotionVector) {
+                    MotionVector mvL0 = (MotionVector) {
                         pic->ref_idx[mb->mbAddr][L0][pos4x4],
                         pic->motion_val[mb->mbAddr][L0][pos4x4][0],
                         pic->motion_val[mb->mbAddr][L0][pos4x4][1],
                     };
-                    mvL1 = (MotionVector) {
+                    MotionVector mvL1 = (MotionVector) {
                         pic->ref_idx[mb->mbAddr][L1][pos4x4],
                         pic->motion_val[mb->mbAddr][L1][pos4x4][0],
                         pic->motion_val[mb->mbAddr][L1][pos4x4][1],
@@ -570,8 +565,7 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                         int pos4x4 = map_4x4[part*4] + (subW == 8 && subH == 4) * (subPart * 4) +
                                                    (subW == 4 && subH == 8) * (subPart) +
                                                    (subW == 4 && subH == 4) * (subPart + (subPart/2)*2);
-                        MotionVector mv = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[list];
-                        mv = (MotionVector) {
+                        MotionVector mv = (MotionVector) {
                             pic->ref_idx[mb->mbAddr][list][pos4x4],
                             pic->motion_val[mb->mbAddr][list][pos4x4][0],
                             pic->motion_val[mb->mbAddr][list][pos4x4][1],
@@ -588,14 +582,12 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                         int pos4x4 = map_4x4[part*4] + (subW == 8 && subH == 4) * (subPart * 4) +
                                                    (subW == 4 && subH == 8) * (subPart) +
                                                    (subW == 4 && subH == 4) * (subPart + (subPart/2)*2);
-                        MotionVector mvL0 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
-                        MotionVector mvL1 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L1];
-                        mvL0 = (MotionVector) {
+                        MotionVector mvL0 = (MotionVector) {
                             pic->ref_idx[mb->mbAddr][L0][pos4x4],
                             pic->motion_val[mb->mbAddr][L0][pos4x4][0],
                             pic->motion_val[mb->mbAddr][L0][pos4x4][1],
                         };
-                        mvL1 = (MotionVector) {
+                        MotionVector mvL1 = (MotionVector) {
                             pic->ref_idx[mb->mbAddr][L1][pos4x4],
                             pic->motion_val[mb->mbAddr][L1][pos4x4][0],
                             pic->motion_val[mb->mbAddr][L1][pos4x4][1],

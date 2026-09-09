@@ -1,8 +1,6 @@
 //
 // Created by gmathix on 4/7/26.
 //
-
-#include "motion_info.h"
 #include "picture.h"
 
 #include "slice.h"
@@ -30,10 +28,10 @@ Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
 
     p->mb_types     = calloc(p->num_mbs, sizeof( int ));
     p->pred_flags   = calloc(p->num_mbs, sizeof( bool [2][4] ));
-    p->motion_info  = calloc(p->num_mbs, sizeof( MotionInfo[16] ));
 
-    p->motion_val   = calloc(p->num_mbs, sizeof(int16_t[2][16][2]));
-    p->ref_idx      = calloc(p->num_mbs, sizeof(int8_t[2][16]));
+    p->motion_val   = calloc(p->num_mbs, sizeof(int16_t  [2][16][2]));
+    p->ref_idx      = calloc(p->num_mbs, sizeof(int8_t   [2][16]));
+    p->ref_pics     = calloc(p->num_mbs, sizeof(Picture* [2][16]));
 
     return p;
 }
@@ -65,7 +63,9 @@ void picture_free(Picture *p) {
 
     free(p->mb_types);
     free(p->pred_flags);
-    free(p->motion_info);
+    free(p->motion_val);
+    free(p->ref_idx);
+    free(p->ref_pics);
 
     free(p);
 }
