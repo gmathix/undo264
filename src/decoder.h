@@ -110,6 +110,17 @@ typedef struct Undo264Context {
     int16_t *qpel_pass_buffers[4];
 
 
+
+    // small buffers used for bS derivation
+
+    // 5 * 8 = 4 internal edges + 1 neighbor edge, 4 values per edge, vertical/horizontal pairs
+    int16_t mv_cache          [2][5 * 8][2];
+    int8_t  ref_idx_cache     [2][5 * 8];
+    int8_t  pred_flag_cache   [2][5 * 8];
+    int8_t  total_coeff_cache    [5 * 8];
+
+
+
     struct Macroblock *scratchMb;
     struct Macroblock *currMb;
     int8_t prevQPY;

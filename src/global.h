@@ -168,4 +168,13 @@ typedef struct Coord {
 
 
 
+static const uint8_t transpose_4x4[16] = {
+    0, 4, 8, 12,
+    1, 5, 9, 13,
+    2, 6, 10, 14,
+    3, 7, 11, 15
+};
+
+
+
 #endif //TOY_H264_GLOBAL_H

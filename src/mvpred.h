@@ -61,7 +61,7 @@ static always_inline MotionVector get_median_mv(Macroblock *mb, int refIdx, int 
     return mv;
 }
 
-static always_inline void derive_p_skip_mv(Macroblock *mb, const Undo264Context *ctx) {
+static void derive_p_skip_mv(Macroblock *mb, const Undo264Context *ctx) {
     MotionVector mv = {0, 0, 0};
 
     Neighbor a = derive_a_neighbor_4x4(mb, 0, ctx);
@@ -81,25 +81,31 @@ static always_inline void derive_p_skip_mv(Macroblock *mb, const Undo264Context 
     for (int i = 0; i < 16; i++) {
         ctx->curr_pic->motion_info[mb->mbAddr][i].mvs[L0] = mv;
         ctx->curr_pic->motion_info[mb->mbAddr][i].ref_pics[L0] = ctx->dpb->lists[L0][1+mv.ref_idx];
+
+        ctx->curr_pic->motion_val[mb->mbAddr][L0][i][0] = mv.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][L0][i][1] = mv.y;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L0][i] = mv.ref_idx;
     }
     memset(&ctx->curr_pic->pred_flags[mb->mbAddr][L0][0], true, 4 * sizeof(bool));
     memset(&ctx->curr_pic->pred_flags[mb->mbAddr][L1][0], false, 4 * sizeof(bool));
 }
 
-static always_inline void derive_16x16_mv(Macroblock *mb, int list, const Undo264Context *ctx) {
+static void derive_16x16_mv(Macroblock *mb, int list, const Undo264Context *ctx) {
     MotionVector mv = get_median_mv(mb, mb->u.pb.ref_idx[list][0], 0, 3, list, ctx);
-
+    mv = (MotionVector) {mv.ref_idx, mv.x + mb->u.pb.mvd[list][0][0][0], mv.y + mb->u.pb.mvd[list][0][0][1]};
     // add delta and broadcast the MV through the whole 4x4 MV block
     for (int i = 0; i < 16; i++) {
-        ctx->curr_pic->motion_info[mb->mbAddr][i].mvs[list] = (MotionVector) {mv.ref_idx,
-                                                            (int16_t) (mv.x + mb->u.pb.mvd[list][0][0][0]),
-                                                            (int16_t) (mv.y + mb->u.pb.mvd[list][0][0][1])};
+        ctx->curr_pic->motion_info[mb->mbAddr][i].mvs[list] = mv;
         ctx->curr_pic->motion_info[mb->mbAddr][i].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+        ctx->curr_pic->motion_val[mb->mbAddr][list][i][0] = mv.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][list][i][1] = mv.y;
+        ctx->curr_pic->ref_idx[mb->mbAddr][list][i] = mv.ref_idx;
     }
     memset(&ctx->curr_pic->pred_flags[mb->mbAddr][list][0], true, 4 * sizeof(bool));
 }
 
-static always_inline void derive_16x8_part_mv(Macroblock *mb, int partIdx, int list, const Undo264Context *ctx) {
+static void derive_16x8_part_mv(Macroblock *mb, int partIdx, int list, const Undo264Context *ctx) {
     MotionInfo (*motion_info) [16] = ctx->curr_pic->motion_info;
 
     MotionVector mv1 = {mb->u.pb.ref_idx[list][0], 0, 0};
@@ -116,11 +122,16 @@ static always_inline void derive_16x8_part_mv(Macroblock *mb, int partIdx, int l
         } else {
             mv1 = get_median_mv(mb, mv1.ref_idx, 0, 3, list, ctx);
         }
+        MotionVector mv = (MotionVector) {mv1.ref_idx,
+                                            (int16_t) (mv1.x + mb->u.pb.mvd[list][0][0][0]),
+                                            (int16_t) (mv1.y + mb->u.pb.mvd[list][0][0][1])};
         for (int i = 0; i < 8; i++) {
-            motion_info[mb->mbAddr][i].mvs[list] = (MotionVector) {mv1.ref_idx,
-                                                (int16_t) (mv1.x + mb->u.pb.mvd[list][0][0][0]),
-                                                (int16_t) (mv1.y + mb->u.pb.mvd[list][0][0][1])};
-            motion_info[mb->mbAddr][i].ref_pics[list] = ctx->dpb->lists[list][1+mv1.ref_idx];
+            motion_info[mb->mbAddr][i].mvs[list] = mv;
+            motion_info[mb->mbAddr][i].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][i][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][i][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][i] = mv.ref_idx;
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][0] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][1] = true;
@@ -133,18 +144,23 @@ static always_inline void derive_16x8_part_mv(Macroblock *mb, int partIdx, int l
         } else {
             mv2 = get_median_mv(mb, mv2.ref_idx, 8, 11, list, ctx);
         }
+        MotionVector mv = (MotionVector) {mv2.ref_idx,
+                                            (int16_t) (mv2.x + mb->u.pb.mvd[list][1][0][0]),
+                                            (int16_t) (mv2.y + mb->u.pb.mvd[list][1][0][1])};
         for (int i = 8; i < 16; i++) {
-            motion_info[mb->mbAddr][i].mvs[list] = (MotionVector) {mv2.ref_idx,
-                                                (int16_t) (mv2.x + mb->u.pb.mvd[list][1][0][0]),
-                                                (int16_t) (mv2.y + mb->u.pb.mvd[list][1][0][1])};
-            motion_info[mb->mbAddr][i].ref_pics[list] = ctx->dpb->lists[list][1+mv2.ref_idx];
+            motion_info[mb->mbAddr][i].mvs[list] = mv;
+            motion_info[mb->mbAddr][i].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][i][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][i][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][i] = mv.ref_idx;
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][2] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][3] = true;
     }
 }
 
-static always_inline void derive_8x16_part_mv(Macroblock *mb, int partIdx, int list, const Undo264Context *ctx) {
+static void derive_8x16_part_mv(Macroblock *mb, int partIdx, int list, const Undo264Context *ctx) {
     MotionInfo (*motion_info) [16] = ctx->curr_pic->motion_info;
 
 
@@ -170,12 +186,17 @@ static always_inline void derive_8x16_part_mv(Macroblock *mb, int partIdx, int l
         } else {
             mv1 = get_median_mv(mb, mv1.ref_idx, 0, 1, list, ctx);
         }
+        MotionVector mv = (MotionVector) {mv1.ref_idx,
+                                          (int16_t) (mv1.x + mb->u.pb.mvd[list][0][0][0]),
+                                          (int16_t) (mv1.y + mb->u.pb.mvd[list][0][0][1])};
         for (int i = 0; i < 8; i++) {
             int pos = ((i>>1)<<2) + (i&1);
-            motion_info[mb->mbAddr][pos].mvs[list] = (MotionVector) {mv1.ref_idx,
-                                                      (int16_t) (mv1.x + mb->u.pb.mvd[list][0][0][0]),
-                                                      (int16_t) (mv1.y + mb->u.pb.mvd[list][0][0][1])};
-            motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv1.ref_idx];
+            motion_info[mb->mbAddr][pos].mvs[list] = mv;
+            motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][0] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][2] = true;
@@ -188,12 +209,17 @@ static always_inline void derive_8x16_part_mv(Macroblock *mb, int partIdx, int l
         } else {
             mv2 = get_median_mv(mb, mv2.ref_idx, 2, 3, list, ctx);
         }
+        MotionVector mv = (MotionVector) {mv2.ref_idx,
+                                          (int16_t) (mv2.x + mb->u.pb.mvd[list][1][0][0]),
+                                          (int16_t) (mv2.y + mb->u.pb.mvd[list][1][0][1])};
         for (int i = 0; i < 8; i++) {
             int pos = ((i>>1)<<2) + 2 + (i&1);
-            motion_info[mb->mbAddr][pos].mvs[list] = (MotionVector) {mv2.ref_idx,
-                                                  (int16_t) (mv2.x + mb->u.pb.mvd[list][1][0][0]),
-                                                  (int16_t) (mv2.y + mb->u.pb.mvd[list][1][0][1])};
-            motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv2.ref_idx];
+            motion_info[mb->mbAddr][pos].mvs[list] = mv;
+            motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][1] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][3] = true;
@@ -209,13 +235,16 @@ static always_inline void derive_sub_8x8_mv(Macroblock *mb, int partIdx, int lis
         part_4x4_idx,
          part_4x4_idx + 1, list, ctx);
 
+    mv = (MotionVector) {mv.ref_idx, (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][0][0]), (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][0][1])};
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             int pos = part_4x4_idx + i*4 + j;
-            motion_info[mb->mbAddr][pos].mvs[list] = (MotionVector) {mv.ref_idx,
-                                                      (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][0][0]),
-                                                      (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][0][1])};
+            motion_info[mb->mbAddr][pos].mvs[list] = mv;
             motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
         }
     }
 }
@@ -228,12 +257,15 @@ static always_inline void derive_sub_8x4_mv(Macroblock *mb, int partIdx, int lis
     for (int subPart = 0; subPart < 2; subPart++) {
         int sub_part_idx = part_4x4_idx + subPart*4;
         MotionVector mv = get_median_mv(mb, mb->u.pb.ref_idx[list][partIdx], sub_part_idx, sub_part_idx+1, list, ctx);
+        mv = (MotionVector) {mv.ref_idx, (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][subPart][0]), (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][subPart][1])};
         for (int i = 0; i < 2; i++) {
             int pos = sub_part_idx + i;
-            motion_info[mb->mbAddr][pos].mvs[list] = (MotionVector) {mv.ref_idx,
-                                                      (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][subPart][0]),
-                                                      (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][subPart][1])};
+            motion_info[mb->mbAddr][pos].mvs[list] = mv;
             motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
         }
     }
 }
@@ -246,12 +278,15 @@ static always_inline void derive_sub_4x8_mv(Macroblock *mb, int partIdx, int lis
     for (int subPart = 0; subPart < 2; subPart++) {
         int sub_part_idx = part_4x4_idx + subPart;
         MotionVector mv = get_median_mv(mb, mb->u.pb.ref_idx[list][partIdx], sub_part_idx, sub_part_idx, list, ctx);
+        mv = (MotionVector) {mv.ref_idx, (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][subPart][0]), (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][subPart][1])};
         for (int i = 0; i < 2; i++) {
             int pos = sub_part_idx + i*4;
-            motion_info[mb->mbAddr][pos].mvs[list] = (MotionVector) {mv.ref_idx,
-                                                      (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][subPart][0]),
-                                                      (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][subPart][1])};
+            motion_info[mb->mbAddr][pos].mvs[list] = mv;
             motion_info[mb->mbAddr][pos].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
+            ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
+            ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
         }
     }
 }
@@ -264,10 +299,13 @@ static always_inline void derive_sub_4x4_mv(Macroblock *mb, int partIdx, int lis
     for (int subPart = 0; subPart < 4; subPart++) {
         int sub_part_idx = part_4x4_idx + subPart/2*4 + subPart%2;
         MotionVector mv = get_median_mv(mb, mb->u.pb.ref_idx[list][partIdx], sub_part_idx, sub_part_idx, list, ctx);
-        motion_info[mb->mbAddr][sub_part_idx].mvs[list] = (MotionVector) {mv.ref_idx,
-                                                          (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][subPart][0]),
-                                                          (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][subPart][1])};
+        mv = (MotionVector) {mv.ref_idx, (int16_t) (mv.x + mb->u.pb.mvd[list][partIdx][subPart][0]), (int16_t) (mv.y + mb->u.pb.mvd[list][partIdx][subPart][1])};
+        motion_info[mb->mbAddr][sub_part_idx].mvs[list] = mv;
         motion_info[mb->mbAddr][sub_part_idx].ref_pics[list] = ctx->dpb->lists[list][1+mv.ref_idx];
+
+        ctx->curr_pic->motion_val[mb->mbAddr][list][sub_part_idx][0] = mv.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][list][sub_part_idx][1] = mv.y;
+        ctx->curr_pic->ref_idx[mb->mbAddr][list][sub_part_idx] = mv.ref_idx;
     }
 }
 
@@ -400,6 +438,13 @@ static always_inline void derive_spatial_direct_mv(Macroblock *mb, int partIdx, 
         currPic->motion_info[mb->mbAddr][pos].mvs[L1] = mvL1;
         currPic->motion_info[mb->mbAddr][pos].ref_pics[L0] = ctx->dpb->lists[L0][1+mvL0.ref_idx];
         currPic->motion_info[mb->mbAddr][pos].ref_pics[L1] = ctx->dpb->lists[L1][1+mvL1.ref_idx];
+
+        ctx->curr_pic->motion_val[mb->mbAddr][L0][pos][0] = mvL0.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][L0][pos][1] = mvL0.y;
+        ctx->curr_pic->motion_val[mb->mbAddr][L1][pos][0] = mvL1.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][L1][pos][1] = mvL1.y;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L0][pos] = mvL0.ref_idx;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L1][pos] = mvL1.ref_idx;
     }
 
 }
@@ -442,6 +487,13 @@ static always_inline void derive_temporal_direct_mv(Macroblock *mb, int partIdx,
         currPic->motion_info[mb->mbAddr][pos].mvs[L1] = mvL1;
         currPic->motion_info[mb->mbAddr][pos].ref_pics[L0] = ctx->dpb->lists[L0][1+mvL0.ref_idx];
         currPic->motion_info[mb->mbAddr][pos].ref_pics[L1] = ctx->dpb->lists[L1][1+mvL1.ref_idx];
+
+        ctx->curr_pic->motion_val[mb->mbAddr][L0][pos][0] = mvL0.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][L0][pos][1] = mvL0.y;
+        ctx->curr_pic->motion_val[mb->mbAddr][L1][pos][0] = mvL1.x;
+        ctx->curr_pic->motion_val[mb->mbAddr][L1][pos][1] = mvL1.y;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L0][pos] = mvL0.ref_idx;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L1][pos] = mvL1.ref_idx;
     }
 
     currPic->pred_flags[mb->mbAddr][L0][partIdx] = 1;
@@ -458,7 +510,7 @@ static always_inline void derive_direct_mv(Macroblock *mb, int partIdx, const Un
 
 
 
-static always_inline void derive_8x8_mv(Macroblock *mb, const Undo264Context *ctx) {
+static void derive_8x8_mv(Macroblock *mb, const Undo264Context *ctx) {
     for (int part = 0; part < 4; part++) {
         int subType = mb->u.pb.sub_mb_info[part].type;
 

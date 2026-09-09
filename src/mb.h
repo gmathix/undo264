@@ -314,6 +314,13 @@ static void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
         motion_info[i].mvs[L1] = (MotionVector) {-1, 0, 0};
         motion_info[i].ref_pics[L0] = &EMPTY_PICTURE;
         motion_info[i].ref_pics[L1] = &EMPTY_PICTURE;
+
+        ctx->curr_pic->motion_val[mbAddr][L0][i][0] = 0;
+        ctx->curr_pic->motion_val[mbAddr][L0][i][1] = 0;
+        ctx->curr_pic->motion_val[mbAddr][L1][i][0] = 0;
+        ctx->curr_pic->motion_val[mbAddr][L1][i][1] = 0;
+        ctx->curr_pic->ref_idx[mbAddr][L0][i] = -1;
+        ctx->curr_pic->ref_idx[mbAddr][L1][i] = -1;
     }
     memset(&ctx->curr_pic->pred_flags[mbAddr][L0][0], false, 4);
     memset(&ctx->curr_pic->pred_flags[mbAddr][L1][0], false, 4);

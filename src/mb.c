@@ -384,6 +384,11 @@ void decode_p_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx
             for (int part = 0; part < mb->u.pb.mb_info.part_count; part++) {
                 int pos4x4 = part * ((w == 8) * 2 + (h == 8) * 8);
                 MotionVector mv = pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
+                mv = (MotionVector) {
+                    pic->ref_idx[mb->mbAddr][L0][pos4x4],
+                    pic->motion_val[mb->mbAddr][L0][pos4x4][0],
+                    pic->motion_val[mb->mbAddr][L0][pos4x4][1],
+                };
                 derive_pred_weights(mv.ref_idx, 0, true, false, ctx);
 
                 DISPATCH_PART_LUMA(inter_pred_single, w, h, mb, pos4x4, mv, L0, scratch_buf, qpel_pass_buf, ctx);
@@ -404,6 +409,11 @@ void decode_p_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx
                                                    (subW == 4 && subH == 8) * (subPart) +
                                                    (subW == 4 && subH == 4) * (subPart + (subPart/2)*2);
                     MotionVector mv = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
+                    mv = (MotionVector) {
+                        pic->ref_idx[mb->mbAddr][L0][pos4x4],
+                        pic->motion_val[mb->mbAddr][L0][pos4x4][0],
+                        pic->motion_val[mb->mbAddr][L0][pos4x4][1],
+                    };
                     derive_pred_weights(mv.ref_idx, 0, true, false, ctx);
 
                     DISPATCH_PART_LUMA(inter_pred_single, subW, subH, mb, pos4x4, mv, L0, scratch_buf, qpel_pass_buf, ctx);
@@ -505,6 +515,11 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                     int list = l0 ? L0 : L1;
 
                     MotionVector mv = pic->motion_info[mb->mbAddr][pos4x4].mvs[list];
+                    mv = (MotionVector) {
+                        pic->ref_idx[mb->mbAddr][list][pos4x4],
+                        pic->motion_val[mb->mbAddr][list][pos4x4][0],
+                        pic->motion_val[mb->mbAddr][list][pos4x4][1],
+                    };
                     derive_pred_weights(mv.ref_idx, mv.ref_idx, l0, l1, ctx);
 
 
@@ -515,6 +530,16 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                 } else if (l0 + l1 == 2) {
                     MotionVector mvL0 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
                     MotionVector mvL1 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L1];
+                    mvL0 = (MotionVector) {
+                        pic->ref_idx[mb->mbAddr][L0][pos4x4],
+                        pic->motion_val[mb->mbAddr][L0][pos4x4][0],
+                        pic->motion_val[mb->mbAddr][L0][pos4x4][1],
+                    };
+                    mvL1 = (MotionVector) {
+                        pic->ref_idx[mb->mbAddr][L1][pos4x4],
+                        pic->motion_val[mb->mbAddr][L1][pos4x4][0],
+                        pic->motion_val[mb->mbAddr][L1][pos4x4][1],
+                    };
 
                     derive_pred_weights(mvL0.ref_idx, mvL1.ref_idx, true, true, ctx);
 
@@ -546,6 +571,11 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                                                    (subW == 4 && subH == 8) * (subPart) +
                                                    (subW == 4 && subH == 4) * (subPart + (subPart/2)*2);
                         MotionVector mv = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[list];
+                        mv = (MotionVector) {
+                            pic->ref_idx[mb->mbAddr][list][pos4x4],
+                            pic->motion_val[mb->mbAddr][list][pos4x4][0],
+                            pic->motion_val[mb->mbAddr][list][pos4x4][1],
+                        };
                         derive_pred_weights(mv.ref_idx, mv.ref_idx, l0, l1, ctx);
 
                         DISPATCH_PART_LUMA(inter_pred_single, subW, subH, mb, pos4x4, mv, list, scratch_buf, qpel_pass_buf, ctx);
@@ -560,6 +590,16 @@ void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ct
                                                    (subW == 4 && subH == 4) * (subPart + (subPart/2)*2);
                         MotionVector mvL0 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L0];
                         MotionVector mvL1 = ctx->curr_pic->motion_info[mb->mbAddr][pos4x4].mvs[L1];
+                        mvL0 = (MotionVector) {
+                            pic->ref_idx[mb->mbAddr][L0][pos4x4],
+                            pic->motion_val[mb->mbAddr][L0][pos4x4][0],
+                            pic->motion_val[mb->mbAddr][L0][pos4x4][1],
+                        };
+                        mvL1 = (MotionVector) {
+                            pic->ref_idx[mb->mbAddr][L1][pos4x4],
+                            pic->motion_val[mb->mbAddr][L1][pos4x4][0],
+                            pic->motion_val[mb->mbAddr][L1][pos4x4][1],
+                        };
                         derive_pred_weights(mvL0.ref_idx, mvL1.ref_idx, true, true, ctx);
 
                         DISPATCH_PART_LUMA(inter_pred_bi, subW, subH, mb, pos4x4, mvL0, mvL1, scratch_buf, temp_bi_buf, qpel_pass_buf, ctx);

@@ -22,6 +22,9 @@ typedef struct Picture {
 	int *mb_types;
 	bool (*pred_flags) [2][4];
 
+	int16_t (*motion_val)[2][16][2];
+	int8_t (*ref_idx)   [2][16];
+
 
     int nal_ref_idc;
 
