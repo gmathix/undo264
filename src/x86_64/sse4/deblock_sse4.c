@@ -130,10 +130,10 @@ static always_inline void store_strided_sse_16(uint8_t *dst, int stride, strided
 
 static always_inline strided_load_sse_t load_strided_sse_8(uint8_t *src, int stride) {
     __m128i zero_reg = _mm_setzero_si128();
-    __m128i l0 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[0*stride]), _mm_loadu_si64(&src[1*stride]));
-    __m128i l1 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[2*stride]), _mm_loadu_si64(&src[3*stride]));
-    __m128i l2 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[4*stride]), _mm_loadu_si64(&src[5*stride]));
-    __m128i l3 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[6*stride]), _mm_loadu_si64(&src[7*stride]));
+    __m128i l0 = _mm_unpacklo_epi64(_mm_loadu_si32(&src[0*stride]), _mm_loadu_si32(&src[1*stride]));
+    __m128i l1 = _mm_unpacklo_epi64(_mm_loadu_si32(&src[2*stride]), _mm_loadu_si32(&src[3*stride]));
+    __m128i l2 = _mm_unpacklo_epi64(_mm_loadu_si32(&src[4*stride]), _mm_loadu_si32(&src[5*stride]));
+    __m128i l3 = _mm_unpacklo_epi64(_mm_loadu_si32(&src[6*stride]), _mm_loadu_si32(&src[7*stride]));
 
     TRANSPOSE8x8_SSE(l0, l1, l2, l3)
 
@@ -158,14 +158,14 @@ static always_inline void store_strided_sse_8(uint8_t *dst, int stride, strided_
     __m128i l3 = _mm_unpacklo_epi64(_mm_packus_epi16(store.c6, zero_reg), _mm_packus_epi16(store.c7, zero_reg));
 
     TRANSPOSE8x8_SSE(l0, l1, l2, l3)
-    _mm_storeu_si64(&dst[0*stride], l0);
-    _mm_storeu_si64(&dst[1*stride], _mm_unpackhi_epi64(l0, zero_reg));
-    _mm_storeu_si64(&dst[2*stride], l1);
-    _mm_storeu_si64(&dst[3*stride], _mm_unpackhi_epi64(l1, zero_reg));
-    _mm_storeu_si64(&dst[4*stride], l2);
-    _mm_storeu_si64(&dst[5*stride], _mm_unpackhi_epi64(l2, zero_reg));
-    _mm_storeu_si64(&dst[6*stride], l3);
-    _mm_storeu_si64(&dst[7*stride], _mm_unpackhi_epi64(l3, zero_reg));
+    _mm_storeu_si32(&dst[0*stride], l0);
+    _mm_storeu_si32(&dst[1*stride], _mm_unpackhi_epi64(l0, zero_reg));
+    _mm_storeu_si32(&dst[2*stride], l1);
+    _mm_storeu_si32(&dst[3*stride], _mm_unpackhi_epi64(l1, zero_reg));
+    _mm_storeu_si32(&dst[4*stride], l2);
+    _mm_storeu_si32(&dst[5*stride], _mm_unpackhi_epi64(l2, zero_reg));
+    _mm_storeu_si32(&dst[6*stride], l3);
+    _mm_storeu_si32(&dst[7*stride], _mm_unpackhi_epi64(l3, zero_reg));
 }
 
 

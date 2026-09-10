@@ -84,7 +84,7 @@ static always_inline strided_load_avx_t load_strided_avx_16(uint8_t *src, int st
     __m128i l4 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[ 8*stride]), _mm_loadu_si64(&src[ 9*stride]));
     __m128i l5 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[10*stride]), _mm_loadu_si64(&src[11*stride]));
     __m128i l6 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[12*stride]), _mm_loadu_si64(&src[13*stride]));
-    __m128i l7 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[14*stride]), _mm_loadu_si64(&src[15*stride]));
+    __m128i l7 = _mm_unpacklo_epi64(_mm_loadu_si64(&src[14*stride]), _mm_unpacklo_epi32(_mm_loadu_si32(&src[15*stride]), _mm_loadu_si16(&(src+4)[15*stride])));
 
     TRANSPOSE8x8_AVX(l4, l5, l6, l7)
 
@@ -129,7 +129,8 @@ static always_inline void store_strided_avx_16(uint8_t *dst, int stride, strided
     _mm_storeu_si64(&dst[12*stride], _mm_unpacklo_epi64(l2, l2));
     _mm_storeu_si64(&dst[13*stride], _mm_unpackhi_epi64(l2, l2));
     _mm_storeu_si64(&dst[14*stride], _mm_unpacklo_epi64(l3, l3));
-    _mm_storeu_si64(&dst[15*stride], _mm_unpackhi_epi64(l3, l3));
+    _mm_storeu_si32(&dst[15*stride], _mm_unpackhi_epi64(l3, l3));
+    _mm_storeu_si16(&(dst+4)[15*stride], _mm_unpackhi_epi16(_mm_unpacklo_epi32(_mm_unpackhi_epi64(l3, l3), l3), l3));
 }
 
 static always_inline strided_load_avx_t load_strided_avx_8(uint8_t *src, int stride) {
