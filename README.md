@@ -89,7 +89,7 @@ Pass with `-D<option>=ON|OFF` at configure time.
 
 | Option            | Default | Effect                                                         |
 |-------------------|---------|----------------------------------------------------------------|
-| `USE_NATIVE_ARCH` | OFF     | Adds `-march=native`. SIMD is currently x86-only; other architectures build and run using the plain C paths. |
+| `USE_NATIVE_ARCH` | ON      | Adds `-march=native`. SIMD is currently x86-only; other architectures build and run using the plain C paths. |
 | `USE_SANITIZERS`  | OFF     | Builds with ASan + UBSan                                       |
 | `BUILD_TOOLS`     | ON      | Also builds `gen_rgb_video` and `compare_streams`              |
 
