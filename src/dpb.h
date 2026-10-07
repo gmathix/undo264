@@ -45,98 +45,6 @@ typedef struct DPB {
 
 
 
-/* some java-style sorting abstraction for l0 and l1 initializations because i miss java :( */
-
-typedef int (*PictureField) (const Picture *pic);
-
-static int returnPicNum(const Picture *pic)   { return pic->pic_num; }
-static int returnLTPicNum(const Picture *pic) { return pic->long_term_frame_idx; }
-static int returnPoc(const Picture *pic)      { return pic->poc; }
-
-
-typedef bool (*RefTypeCriteria) (const Picture *pic);
-
-static bool shortTermCriteria(const Picture *pic) { return pic->dpb_status == SHORT_TERM_REF; }
-static bool longTermCriteria(const Picture *pic)  { return pic->dpb_status == LONG_TERM_REF; }
-
-
-typedef bool (*ReferenceComparator) (int field, int ref);
-
-static bool greaterThan(int field, int ref)    { return field > ref; }
-static bool lowerThan(int field, int ref)      { return field < ref; }
-static bool greaterOrEqual(int field, int ref) { return field >= ref; }
-static bool lowerOrEqual(int field, int ref)   { return field <= ref; }
-static bool equalTo(int field, int ref)        { return field == ref; }
-static bool dontGiveAShit(int field, int ref)  { return true || field || ref; } // just to suppress to compiler warning
-
-
-/* returns how many pictures were added to the dest list */
-static int sortToRefList(DPB *dpb, bool descending, int list, int *idx,
-    PictureField fieldGetter, RefTypeCriteria criteria, ReferenceComparator comparator, Picture *refPic) {
-
-    int nbAdded = 0;
-
-    int bestIdx = 0;
-    int best = descending ? INT32_MIN : INT32_MAX;
-    int prevBest = descending ? INT32_MAX : INT32_MIN;
-
-    for (int i = 0; i < MAX_DPB_SIZE; i++) {
-        for (int j = 0; j < MAX_DPB_SIZE; j++) {
-            Picture *pic = dpb->slots[j];
-            if (pic == NULL) continue;
-            int field = (fieldGetter)(pic);
-            int fieldRef = (fieldGetter)(refPic);
-            bool compareResult = descending ?
-                  field < prevBest && field > best
-                : field > prevBest && field < best;
-            bool criteriaResult = (criteria)(pic);
-            bool refCompareResult = (comparator)(field, fieldRef);
-            if (criteriaResult && compareResult && refCompareResult) {
-                best = field;
-                bestIdx = j;
-            }
-        }
-        if ((descending && best > INT32_MIN) || (!descending && best < INT32_MAX)) {
-            Picture *pic = dpb->slots[bestIdx];
-            if (!pic->in_list[list]) {
-                pic->lowest_list_index[list] = *idx;
-                pic->in_list[list] = true;
-            }
-
-            dpb->lists[list][1+(*idx)++] = pic;
-
-            nbAdded++;
-            prevBest = best;
-            best = descending ? INT32_MIN : INT32_MAX;
-        } else break;
-    }
-
-    return nbAdded;
-}
-
-static Picture *findPic(DPB *dpb, PictureField fieldGetter, int fieldValue) {
-    for (int i = 0; i < dpb->size; i++) {
-        Picture *pic = dpb->slots[i];
-        if (pic == NULL) continue;
-        if ((fieldGetter)(pic) == fieldValue) {
-            return pic;
-        }
-    }
-    return NULL;
-}
-
-static Picture *findRefPic(DPB *dpb, PictureField fieldGetter, int fieldValue) {
-    for (int i = 0; i < dpb->size; i++) {
-        Picture *pic = dpb->slots[i];
-        if (pic == NULL) continue;
-        if ((fieldGetter)(pic) == fieldValue && pic->dpb_status != UNUSED_REF) {
-            return pic;
-        }
-    }
-    return NULL;
-}
-
-
 static DPB *make_dbp(const Undo264Context *ctx) {
     DPB *dpb = calloc(1, sizeof(DPB));
 
@@ -161,45 +69,14 @@ static DPB *make_dbp(const Undo264Context *ctx) {
     return dpb;
 }
 
-static inline int picNum(Picture **lX, int idx, int maxPicNum) {
-    if (lX[1+idx] != NULL && lX[1+idx]->dpb_status == SHORT_TERM_REF)
-        return lX[1+idx]->pic_num;
-    return maxPicNum;
-}
-
-static inline int ltPicNum(Picture **lX, int idx, int maxLtIdx) {
-    if (lX[1+idx] != NULL && lX[1+idx]->dpb_status == LONG_TERM_REF)
-        return lX[1+idx]->long_term_frame_idx;
-    return 2 * (maxLtIdx + 1);
-}
-
 
 void derive_poc(DPB *dpb, Picture *pic);
-void decode_pic_nums(DPB *dpb, int frame_num);
-int  bump(DPB *dpb);
-int  output_oldest_pic(DPB *dpb); // returns index of output picture
 void store_picture(DPB *dpb, Picture *pic);
 
 void init_ref_pic_lists(DPB *dpb, struct SliceHeader *sh);
-
-
-/* MMCOs */
-void mark_st_pic_unused(DPB *dpb, int picNum);
-void mark_lt_pic_unused(DPB *dpb, int ltPicNum);
-void assign_lt_idx_to_st_pic(DPB *dpb, int picNum, int lt_frame_idx);
-void decode_max_lt_frame_idx(DPB *dpb, int max_lt_frame_idx);
-void mark_all_unused(DPB *dpb);
-void mark_curr_pic_lt(DPB *dpb, int lt_frame_idx);
-
-
 void ref_pic_list_modification(uint8_t type, struct Slice *slice, int maxFrameNum, int *maxLtIdx, const Undo264Context *ctx);
-void ref_pic_list_modif_st(struct Slice *slice, bool is_l0, int *refIdxLX, int modif_idc, int abs_diff, int maxFrameNum, const Undo264Context *ctx);
-void ref_pic_list_modif_lt(struct Slice *slice, bool is_l0, int *refIdxLX, int modif_idc, int lt_pic_num, int *maxLtIdx, const Undo264Context *ctx);
-void dec_ref_pic_marking(DPB *dpb, struct Slice *slice,  BitReader *br);
-void process_mmcos(Picture *pic, const Undo264Context *ctx);
+void dec_ref_pic_marking(DPB *dpb, struct Slice *slice, BitReader *br);
 
-void dpb_empty_slots(DPB *dpb);
-void dpb_empty_ref_lists(DPB *dpb);
 void dpb_flush(DPB *dpb);
 void dpb_free(DPB *dpb);
 
