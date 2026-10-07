@@ -60,7 +60,7 @@
 
 
 #include "dsp/transform.c"
-#include "dsp/deblock_edge.c"
+#include "dsp/deblock.c"
 
 
 // scalar versions by default

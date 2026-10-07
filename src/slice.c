@@ -338,15 +338,15 @@ int CAFUNC(read_ref_idx,
         int aType = MB_TYPE_SKIP, bType = MB_TYPE_SKIP;
         if (n.a.av) {
             aType = ctx->mb_metadata[mb->mbAddr + n.a.mb_off].mb_type;
-            MotionInfo motion_info_A = ctx->curr_pic->motion_info[mb->mbAddr + n.a.mb_off][n.a.idx];
-            refIdxZeroA = motion_info_A.mvs[list].ref_idx <= 0;
-            predModeEqualA = motion_info_A.mvs[list].ref_idx >= 0;
+            int refIdxA = ctx->curr_pic->ref_idx[mb->mbAddr + n.a.mb_off][list][n.a.idx];
+            refIdxZeroA = refIdxA <= 0;
+            predModeEqualA = refIdxA >= 0;
         }
         if (n.b.av) {
             bType = ctx->mb_metadata[mb->mbAddr + n.b.mb_off].mb_type;
-            MotionInfo motion_info_B = ctx->curr_pic->motion_info[mb->mbAddr + n.b.mb_off][n.b.idx];
-            refIdxZeroB = motion_info_B.mvs[list].ref_idx <= 0;
-            predModeEqualB = motion_info_B.mvs[list].ref_idx >= 0;
+            int refIdxB = ctx->curr_pic->ref_idx[mb->mbAddr + n.b.mb_off][list][n.b.idx];
+            refIdxZeroB = refIdxB <= 0;
+            predModeEqualB = refIdxB >= 0;
         }
 
         /* historical note
@@ -396,8 +396,8 @@ int CAFUNC(read_mvd,
 
         Neighbors n = derive_neighbors_4x4(mb, pos4x4, ctx);
 
-        bool predModeEqualA = n.a.av && ctx->curr_pic->motion_info[mb->mbAddr + n.a.mb_off][n.a.idx].mvs[list].ref_idx >= 0;
-        bool predModeEqualB = n.b.av && ctx->curr_pic->motion_info[mb->mbAddr + n.b.mb_off][n.b.idx].mvs[list].ref_idx >= 0;
+        bool predModeEqualA = n.a.av && ctx->curr_pic->ref_idx[mb->mbAddr + n.a.mb_off][list][n.a.idx] >= 0;
+        bool predModeEqualB = n.b.av && ctx->curr_pic->ref_idx[mb->mbAddr + n.b.mb_off][list][n.b.idx] >= 0;
 
         MacroblockMetadata metaA = n.a.av ? ctx->mb_metadata[mb->mbAddr + n.a.mb_off] : (MacroblockMetadata) {};
         MacroblockMetadata metaB = n.b.av ? ctx->mb_metadata[mb->mbAddr + n.b.mb_off] : (MacroblockMetadata) {};
@@ -703,7 +703,7 @@ void CAFUNC(read_mb_pred,
                 for (int blk = 0; blk < (w >> 2) * (h >> 2); blk++) {
                     int blkIdx = (w == 16) * (part * 8 + blk) +
                                  (w ==  8) * (part * 2 + blk + 2*(blk/2));
-                    ctx->curr_pic->motion_info[mb->mbAddr][blkIdx].mvs[L0].ref_idx = ref_idx;
+                    ctx->curr_pic->ref_idx[mb->mbAddr][L0][blkIdx] = ref_idx;
                 }
             }
         }
@@ -717,7 +717,7 @@ void CAFUNC(read_mb_pred,
                 for (int blk = 0; blk < (w >> 2) * (h >> 2); blk++) {
                     int blkIdx = (w == 16) * (part * 8 + blk) +
                                  (w ==  8) * (part * 2 + blk + 2*(blk/2));
-                    ctx->curr_pic->motion_info[mb->mbAddr][blkIdx].mvs[L1].ref_idx = ref_idx;
+                    ctx->curr_pic->ref_idx[mb->mbAddr][L1][blkIdx] = ref_idx;
                 }
             }
         }
@@ -780,7 +780,7 @@ void CAFUNC(read_sub_mb_pred,
             mb->u.pb.ref_idx[L0][part] = ref_idx;
             for (int blk = 0; blk < 4; blk++) {
                 int blkIdx = pos4x4 + blk + 2*(blk/2);
-                ctx->curr_pic->motion_info[mb->mbAddr][blkIdx].mvs[L0].ref_idx = ref_idx;
+                ctx->curr_pic->ref_idx[mb->mbAddr][L0][blkIdx] = ref_idx;
             }
         }
     }
@@ -795,7 +795,7 @@ void CAFUNC(read_sub_mb_pred,
             mb->u.pb.ref_idx[L1][part] = ref_idx;
             for (int blk = 0; blk < 4; blk++) {
                 int blkIdx = pos4x4 + blk + 2*(blk/2);
-                ctx->curr_pic->motion_info[mb->mbAddr][blkIdx].mvs[L1].ref_idx = ref_idx;
+                ctx->curr_pic->ref_idx[mb->mbAddr][L1][blkIdx] = ref_idx;
             }
         }
     }
@@ -947,8 +947,8 @@ void CAFUNC(read_macroblock,
     memset(meta->coded_block_flag, 0, 14 * 16);
     memset(meta->mvd, 0, 2 * 16 * 2 * sizeof(int16_t));
     for (int blk = 0; blk < 16; blk++) {
-        ctx->curr_pic->motion_info[mb->mbAddr][blk].mvs[L0].ref_idx = 0;
-        ctx->curr_pic->motion_info[mb->mbAddr][blk].mvs[L1].ref_idx = 0;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L0][blk] = 0;
+        ctx->curr_pic->ref_idx[mb->mbAddr][L1][blk] = 0;
     }
 
 

@@ -31,7 +31,7 @@ set(UNDO264_SOURCES
     src/picture.c
     src/dequant.c
     src/dpb.c
-    src/deblock.c
+    src/loopfilter.c
     src/cabac.c
     src/util/logger.c
     src/tests/profiler.c

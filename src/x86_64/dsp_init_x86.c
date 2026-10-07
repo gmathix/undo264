@@ -22,12 +22,15 @@
 #undef HEIGHT
 
 #include "sse4/transform_sse4.c"
-#include "sse4/deblock_edge_sse4.c"
+#include "sse4/deblock_sse4.c"
+
+#include "avx2/deblock_avx2.c"
 
 
 static void dsp_init_x86(DSPContext *dsp) {
     __builtin_cpu_init();
 
+    /* sse4 */
     if (__builtin_cpu_supports("sse4.1")) {
         dsp->weigh_bi_funcs[BLOCK_16x16] = weigh_bi_sse_16x16;
         dsp->weigh_bi_funcs[BLOCK_16x8]  = weigh_bi_sse_16x8;
@@ -72,5 +75,11 @@ static void dsp_init_x86(DSPContext *dsp) {
         dsp->deblock_edge_weak_chroma_v   = deblock_edge_weak_chroma_v_sse4;
         dsp->deblock_edge_strong_chroma_h = deblock_edge_strong_chroma_h_sse4;
         dsp->deblock_edge_strong_chroma_v = deblock_edge_strong_chroma_v_sse4;
+    }
+
+    /* avx2 */
+    if (__builtin_cpu_supports("avx2")) {
+        dsp->deblock_edge_weak_luma_h = deblock_edge_weak_luma_h_avx2;
+        dsp->deblock_edge_weak_luma_v = deblock_edge_weak_luma_v_avx2;
     }
 }

@@ -25,6 +25,7 @@
 
 
 #define always_inline inline __attribute__((always_inline))
+#define flatten __attribute__((flatten))
 #define OPTIMIZE_O0   __attribute__((optimize("O0")))
 #define OPTIMIZE_O1   __attribute__((optimize("O1")))
 #define OPTIMIZE_O2   __attribute__((optimize("O2")))
@@ -165,6 +166,20 @@ typedef struct Coord {
     int16_t x;
     int16_t y;
 } Coord ;
+
+typedef struct MotionVector {
+    int8_t ref_idx;
+    int16_t x;
+    int16_t y;
+} MotionVector ;
+
+
+static const uint8_t transpose_4x4[16] = {
+    0, 4, 8, 12,
+    1, 5, 9, 13,
+    2, 6, 10, 14,
+    3, 7, 11, 15
+};
 
 
 

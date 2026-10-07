@@ -1,7 +1,7 @@
-videos/horizon5.mp4
-videos/output.h264
+
 
 cmake-build-debug/
 .idea/
 
+h264_decoder_roadmap.html
 

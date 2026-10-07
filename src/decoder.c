@@ -18,7 +18,6 @@
 
 #include "cavlc.h"
 #include "cabac.h"
-#include "deblock.h"
 #include "intra.h"
 #include "picture.h"
 
@@ -35,13 +34,14 @@
 #undef CABAC
 #define CABAC 0
 #include "slice.c"
+#undef CABAC
 
 
-int debugging = 0;
-int frame_debug = -1;
-int frame_num_debug = -1;
-int poc_debug = 60;
-int mb_debug = 395;
+int debugging             = 0;
+int frame_debug           = -1;
+int frame_num_debug       = -1;
+int poc_debug             = -1;
+int mb_debug              = -1;
 int nb_frames_before_stop = -1;
 
 
@@ -232,9 +232,11 @@ void decoder_run(Undo264Context *ctx) {
 
             if (bitreader_bits_remaining(&nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
                 goto https;
+
             }
         }
     }
+
 
 	dpb_flush(ctx->dpb);
 	fflush(ctx->out_file);
@@ -278,7 +280,7 @@ void decoder_free(Undo264Context *ctx) {
 
 
     free(ctx->currMb);
-    // free(ctx->prevMb);
+    free(ctx->scratchMb);
 
 
     dpb_free(ctx->dpb);
