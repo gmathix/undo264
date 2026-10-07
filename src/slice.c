@@ -59,6 +59,11 @@ void CAFUNC(read_residual_luma,
                     }
                 } else {
                     ctx->total_coeffs[mb->mbAddr][blkIdx] = 0;
+                    if (IS_INTRA16x16(type)) {
+                        memset(mb->residuals.luma_16x16_AC[blkIdx], 0, 15 * sizeof(int16_t));
+                    } else {
+                        memset(mb->residuals.luma_4x4_coeffs[blkIdx], 0, 16 * sizeof(int16_t));
+                    }
                 }
 
                 if (!sh->pps->cabac_flag && t_8x8_flag) {
@@ -115,6 +120,7 @@ void CAFUNC(read_residual,
                                 _max(0, startIdx-1), endIdx-1, 15, false, sh, ctx);
                     } else {
                         ctx->total_coeffs[mb->mbAddr][16 + iCbCr*4 + i4x4] = 0;
+                        memset(mb->residuals.chroma_AC[iCbCr][i4x4], 0, 15 * sizeof(int16_t));
                     }
                 }
             }

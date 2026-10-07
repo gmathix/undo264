@@ -17,7 +17,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_SANITIZERS": "ON",
-        "USE_NATIVE_ARCH": "ON"
+        "USE_NATIVE_ARCH": "OFF"
       }
     }
   ],
