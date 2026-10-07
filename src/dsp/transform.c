@@ -218,11 +218,16 @@ void transform_luma_16x16(Macroblock *mb, const Undo264Context *ctx) {
       static int16_t d[4][4];
       int stride = mb->p_pic->widthY;
       for (int i = 0; i < 16; i++) {
-            inverse_4x4_coeff_scaling_scan_dc(mb->residuals.luma_16x16_AC[i], dcY[i>>2][i&3], c);
+            if (mb->residuals.cbp_luma != 0) {
+                  inverse_4x4_coeff_scaling_scan_dc(mb->residuals.luma_16x16_AC[i], dcY[i>>2][i&3], c);
 
-            if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d, true, ctx);
-            else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d, true, ctx);
-            d[0][0] = c[0][0];
+                  if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d, true, ctx);
+                  else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d, true, ctx);
+                  d[0][0] = c[0][0];
+            } else {
+                  memset(d, 0, sizeof d);
+                  d[0][0] = (int16_t)dcY[i>>2][i&3];
+            }
 
             int blkY = (i>>2) << 2;
             int blkX = (i&3) << 2;
