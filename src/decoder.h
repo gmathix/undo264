@@ -112,12 +112,9 @@ typedef struct Undo264Context {
 
 
     // small buffers used for bS derivation
-
-    // 5 * 8 = 4 internal edges + 1 neighbor edge, 4 values per edge, vertical/horizontal pairs
-    int16_t mv_cache          [2][5 * 8][2];
-    int8_t  ref_idx_cache     [2][5 * 8];
-    int8_t  pred_flag_cache   [2][5 * 8];
-    int8_t  total_coeff_cache    [5 * 8];
+    int16_t  mv_cache          [2][48];
+    uint8_t  ref_cache         [2][24];
+    uint8_t  total_coeff_cache    [24];
 
 
 

@@ -50,135 +50,134 @@ const uint8_t treshold_table[3][52] = {
 };
 
 
+
 int tc0_tables_initialized = 0;
 int8_t tc0_tables[256][52][16] __attribute__((aligned(16)));
 
-void init_tc0_tables(void) {
-    for (int bs0 = 0; bs0 < 4; bs0++) {
-        for (int bs1 = 0; bs1 < 4; bs1++) {
-            for (int bs2 = 0; bs2 < 4; bs2++) {
-                for (int bs3 = 0; bs3 < 4; bs3++) {
-                    for (int indexA = 0; indexA < 52; indexA++) {
-                        int8_t *table = &tc0_tables[(bs0<<6) + (bs1<<4) + (bs2<<2) + bs3][indexA][0];
-                        memset(table +  0, bs0 ? treshold_table[bs0-1][indexA] : (int8_t)-1, 4);
-                        memset(table +  4, bs1 ? treshold_table[bs1-1][indexA] : (int8_t)-1, 4);
-                        memset(table +  8, bs2 ? treshold_table[bs2-1][indexA] : (int8_t)-1, 4);
-                        memset(table + 12, bs3 ? treshold_table[bs3-1][indexA] : (int8_t)-1, 4);
-                    }
-                }
+
+
+// this is ugly but for now it's not slow enough to require refactoring
+static void fill_ctx_cache(bool filter_left, bool filter_top, int mb_width, Macroblock *mb, Picture *pic, Undo264Context *ctx) {
+    if (filter_left) {
+        int mbAddrA = mb->mbAddr - 1;
+        MacroblockMetadata metaA = ctx->mb_metadata[mbAddrA];
+        for (int i = 0; i < 4; i++) {
+            int i8x8 = 1 + (i/2)*2;
+            ctx->ref_cache[L0][i]       = pic->ref_pics[mbAddrA][L0][3+(i<<2)]->dpb_pic_id;
+            ctx->ref_cache[L1][i]       = pic->ref_pics[mbAddrA][L1][3+(i<<2)]->dpb_pic_id;
+            ctx->mv_cache[L0][i<<1]     = pic->motion_val[mbAddrA][L0][3+(i<<2)][0];
+            ctx->mv_cache[L0][(i<<1)+1] = pic->motion_val[mbAddrA][L0][3+(i<<2)][1];
+            ctx->mv_cache[L1][i<<1]     = pic->motion_val[mbAddrA][L1][3+(i<<2)][0];
+            ctx->mv_cache[L1][(i<<1)+1] = pic->motion_val[mbAddrA][L1][3+(i<<2)][1];
+            if (!metaA.t_8x8_flag) ctx->total_coeff_cache[i]   = ctx->total_coeffs[mbAddrA][3+(i<<2)];
+            else ctx->total_coeff_cache[i] = (metaA.cbp_luma & (1 << i8x8)) > 0;
+        }
+    }
+    MacroblockMetadata meta = ctx->mb_metadata[mb->mbAddr];
+    for (int i = 0 ; i < 16; i++) {
+        ctx->ref_cache[L0][4+i] = pic->ref_pics[mb->mbAddr][L0][i]->dpb_pic_id;
+        ctx->ref_cache[L1][4+i] = pic->ref_pics[mb->mbAddr][L1][i]->dpb_pic_id;
+    }
+    memcpy(&ctx->mv_cache[L0][8], &pic->motion_val[mb->mbAddr][L0][0], 32 * sizeof(int16_t));
+    memcpy(&ctx->mv_cache[L1][8], &pic->motion_val[mb->mbAddr][L1][0], 32 * sizeof(int16_t));
+    if (!meta.t_8x8_flag) memcpy(&ctx->total_coeff_cache[4], &ctx->total_coeffs[mb->mbAddr][0], 16 * sizeof(uint8_t));
+    else {
+        for (int i8x8 = 0; i8x8 < 4; i8x8++) {
+            int tc = (meta.cbp_luma & (1 << i8x8)) > 0;
+            int base = map_4x4[i8x8<<2];
+            ctx->total_coeff_cache[4+base+0] = tc;
+            ctx->total_coeff_cache[4+base+1] = tc;
+            ctx->total_coeff_cache[4+base+4] = tc;
+            ctx->total_coeff_cache[4+base+5] = tc;
+        }
+    }
+
+    if (filter_top) {
+        int mbAddrB = mb->mbAddr - mb_width;
+        MacroblockMetadata metaB = ctx->mb_metadata[mbAddrB];
+        for (int i = 0; i < 4; i++) {
+            ctx->ref_cache[L0][20+i]       = pic->ref_pics[mbAddrB][L0][12+i]->dpb_pic_id;
+            ctx->ref_cache[L1][20+i]       = pic->ref_pics[mbAddrB][L1][12+i]->dpb_pic_id;
+        }
+        memcpy(&ctx->mv_cache[L0][40], &pic->motion_val[mbAddrB][L0][12], 8 * sizeof(int16_t));
+        memcpy(&ctx->mv_cache[L1][40], &pic->motion_val[mbAddrB][L1][12], 8 * sizeof(int16_t));
+        if (!metaB.t_8x8_flag) memcpy(&ctx->total_coeff_cache[20], &ctx->total_coeffs[mbAddrB][12], 4 * sizeof(uint8_t));
+        else {
+            for (int i8x8 = 2; i8x8 < 4; i8x8++) {
+                int tc = (metaB.cbp_luma & (1 << i8x8)) > 0;
+                ctx->total_coeff_cache[20+i8x8*2-4] = tc;
+                ctx->total_coeff_cache[20+i8x8*2-3] = tc;
             }
         }
     }
 }
 
-static always_inline bool same_ref_pics(
-    const Picture *picL0_0, const Picture *picL1_0,
-    const Picture *picL0_1, const Picture *picL1_1) {
 
-    // when refLX_X is -1 (no ref) we just get EMPTY_PIC which has dpb_pic_id = 0
-    long hash0 = ((picL0_0->dpb_pic_id != 0) * (1L << picL0_0->dpb_pic_id)) |
-                ((picL1_0->dpb_pic_id != 0)  * (1L << picL1_0->dpb_pic_id));
-    long hash1 = ((picL0_1->dpb_pic_id != 0) * (1L << picL0_1->dpb_pic_id)) |
-                ((picL1_1->dpb_pic_id != 0)  * (1L << picL1_1->dpb_pic_id));
-    return hash0 == hash1;
+// inspired from how ffmpeg does it
+static int check_mv(SliceHeader *sh, int idx, int idx_n, const Undo264Context *ctx) {
+    int bs;
+
+    int idx_mv = idx << 1;
+    int idx_n_mv = idx_n << 1;
+
+    // L0
+    bs = ctx->ref_cache[L0][idx] != ctx->ref_cache[L0][idx_n]; // different pictures
+    if (bs == 0 && ctx->ref_cache[L0][idx] != EMPTY_PICTURE.dpb_pic_id) {
+        bs = ctx->mv_cache[L0][idx_mv]   - ctx->mv_cache[L0][idx_n_mv]   + 3 >= 7U | // abs(MV_x - MV_x_n) >= 4
+             ctx->mv_cache[L0][idx_mv+1] - ctx->mv_cache[L0][idx_n_mv+1] + 3 >= 7U;  // abs(MV_y - MV_y_n) >= 4
+    }
+
+    if (IS_B_SLICE(sh->slice_type)) {
+        if (bs == 0) { // L1
+            bs = ctx->ref_cache[L1][idx] != ctx->ref_cache[L1][idx_n] | // different L1 pictures
+                 ctx->mv_cache[L1][idx_mv]   - ctx->mv_cache[L1][idx_n_mv]   + 3 >= 7U | // abs(MV_x - MV_x_n) >= 4
+                 ctx->mv_cache[L1][idx_mv+1] - ctx->mv_cache[L1][idx_n_mv+1] + 3 >= 7U;  // abs(MV_y - MV_y_n) >= 4
+        }
+
+        if (bs == 1) { // L0 pictures are different and L1 pictures too, need to check if L0 and L1 pictures are mutually different too
+            if (ctx->ref_cache[L0][idx] != ctx->ref_cache[L1][idx_n] |
+                ctx->ref_cache[L1][idx] != ctx->ref_cache[L0][idx_n])
+                return 1;
+
+            return ctx->mv_cache[L0][idx_mv]   - ctx->mv_cache[L1][idx_n_mv]   + 3 >= 7U | // abs(MV_x_l0 - MV_x_n_l1) >= 4
+                   ctx->mv_cache[L0][idx_mv+1] - ctx->mv_cache[L1][idx_n_mv+1] + 3 >= 7U | // abs(MV_y_l0 - MV_x_y_l1) >= 4
+                   ctx->mv_cache[L1][idx_mv]   - ctx->mv_cache[L0][idx_n_mv]   + 3 >= 7U | // abs(MV_x_l1 - MV_x_n_l0) >= 4
+                   ctx->mv_cache[L1][idx_mv+1] - ctx->mv_cache[L0][idx_n_mv+1] + 3 >= 7U;  // abs(MV_y_l1 - MV_y_n_l0) >= 4
+        }
+    }
+
+    return bs;
 }
+// derive bS for all edges where not intra
+static void derive_low_bS_list_fast(SliceHeader *sh, int bS_list[2][4][4], const Undo264Context* ctx) {
+    // vertical
+    for (int edge = 0; edge < 4; edge++) {
+        for (int i = 0; i < 4; i++) {
+            int idx_n = edge == 0 ? i : 4+(i<<2)+edge-1;
+            int idx = ((i+1)<<2)+edge;
+            if (ctx->total_coeff_cache[idx_n] || ctx->total_coeff_cache[idx]) {
+                bS_list[0][edge][i] = 2;
+            } else {
+                bS_list[0][edge][i] = check_mv(sh, idx, idx_n, ctx);
+            }
+        }
+    }
 
-static always_inline bool same_ref_pics_one_block(int refL0, int refL1, const Undo264Context *ctx) {
-    return ctx->dpb->lists[L0][1+refL0]->dpb_pic_id == ctx->dpb->lists[L1][1+refL1]->dpb_pic_id;
-}
-
-static always_inline bool mv_diff_g4(MotionVector mv1, MotionVector mv2) {
-    return (_abs(mv1.x - mv2.x) >= 4) || (_abs(mv1.y - mv2.y) >= 4);
-}
-
-
-static always_inline MotionVector get_mv(int mbAddr, int idx, int list, Picture *pic) {
-    return (MotionVector) {
-        pic->ref_idx[mbAddr][list][idx],
-        pic->motion_val[mbAddr][list][idx][0], pic->motion_val[mbAddr][list][idx][1]
-    };
-}
-
-static always_inline int check_mv(int mbAddr, int mbAddrN, int idx, int idx_n, int idx_8x8, int idx_n_8x8, const Undo264Context *ctx) {
-    const MotionVector mvL0_0 = get_mv(mbAddr, idx, L0, ctx->curr_pic);
-    const MotionVector mvL1_0 = get_mv(mbAddr, idx, L1, ctx->curr_pic);
-    const Picture *picL0_0    = ctx->curr_pic->ref_pics[mbAddr][L0][idx];
-    const Picture *picL1_0    = ctx->curr_pic->ref_pics[mbAddr][L1][idx];
-
-    const MotionVector mvL0_1 = get_mv(mbAddrN, idx_n, L0, ctx->curr_pic);
-    const MotionVector mvL1_1 = get_mv(mbAddrN, idx_n, L1, ctx->curr_pic);
-    const Picture *picL0_1    = ctx->curr_pic->ref_pics[mbAddrN][L0][idx_n];
-    const Picture *picL1_1    = ctx->curr_pic->ref_pics[mbAddrN][L1][idx_n];
-
-    int flagL0_0 = ctx->curr_pic->pred_flags[mbAddr][L0][idx_8x8];
-    int flagL1_0 = ctx->curr_pic->pred_flags[mbAddr][L1][idx_8x8];
-    int flagL0_1 = ctx->curr_pic->pred_flags[mbAddrN][L0][idx_n_8x8];
-    int flagL1_1 = ctx->curr_pic->pred_flags[mbAddrN][L1][idx_n_8x8];
-    int nbMV0    = flagL0_0 + flagL1_0;
-    int nbMV1    = flagL0_1 + flagL1_1;
-    MotionVector singleMV0 = flagL0_0 ? mvL0_0 : mvL1_0;
-    MotionVector singleMV1 = flagL0_1 ? mvL0_1 : mvL1_1;
-
-    bool same_pics = same_ref_pics(picL0_0, picL1_0, picL0_1, picL1_1);
-
-    return  (!same_pics) ||
-            (nbMV0 != nbMV1) || // different number of MVs
-            ((nbMV0 == 1 && nbMV1 == 1) && mv_diff_g4(singleMV0, singleMV1)) || // one MV on each side and abs(mv0-mv1) >= 4 for x or y
-            ((nbMV0 == 2 && nbMV1 == 2) && !same_ref_pics_one_block(mvL0_1.ref_idx, mvL1_1.ref_idx, ctx) &&
-                 ((mvL0_0.ref_idx == mvL0_1.ref_idx && (mv_diff_g4(mvL0_0, mvL0_1) || mv_diff_g4(mvL1_0, mvL1_1))) ||
-                  (mvL0_0.ref_idx != mvL0_1.ref_idx && (mv_diff_g4(mvL0_0, mvL1_1) || mv_diff_g4(mvL1_0, mvL0_1))))) ||
-            ((nbMV0 == 2 && nbMV1 == 2) && same_ref_pics_one_block(mvL0_0.ref_idx, mvL1_0.ref_idx, ctx) &&
-                 ((mv_diff_g4(mvL0_0, mvL0_1) || mv_diff_g4(mvL1_0, mvL1_1)) &&
-                  (mv_diff_g4(mvL0_1, mvL1_0) || mv_diff_g4(mvL1_1, mvL0_0))));
-}
-
-/**
- * derive the 4 bS values needed for a vertical or horizontal edge
- * @param mbAddr     address if the macroblock to deblock
- * @param mbAddrN    address of the macroblock containing the sample p0 (neighbor of mbAddr)
- * @param blkIdx     initial 4x4 block index in current mb
- * @param blkIdxN    initial 4x4 block index in neighbor mb
- * @param blkIdx8x8  initial 8x8 block_index in current mb
- * @param blkIdx8x8N initial 8x8 block index in neighbor mb
- */
-void derive_low_bS_list(int mbAddr, int mbAddrN, int blkIdx, int blkIdxN, int blkIdx8x8, int blkIdx8x8N,
-                        bool vertical, int bS_list[4], const Undo264Context *ctx) {
-
-    MacroblockMetadata meta   = ctx->mb_metadata[mbAddr];
-    MacroblockMetadata meta_n = ctx->mb_metadata[mbAddrN];
-
-
-    int blkAdd    = 1 + vertical*3; // 1 for horizontal, 4 for vertical
-    int blkAdd8x8 = 1 + vertical;
-
-    for (int i = 0; i < 4; i++) {
-        int idx       = blkIdx      + i*blkAdd;
-        int idx_n     = blkIdxN     + i*blkAdd;
-        int idx_8x8   = blkIdx8x8   + (i/2)*blkAdd8x8;
-        int idx_n_8x8 = blkIdx8x8N  + (i/2)*blkAdd8x8;
-
-        bS_list[i] = 0;
-
-
-        /*
-         * bS = 2
-         * <=> the corresponding 4x4 or 8x8 transform blocks (depending on transform_8x8_flag) have non-zero coeff levels
-         */
-        bS_list[i] += (((meta.t_8x8_flag    && (meta.cbp_luma   & (1 << idx_8x8))) ||
-             (meta_n.t_8x8_flag  && (meta_n.cbp_luma & (1 << idx_n_8x8))) ||
-             (!meta.t_8x8_flag   && (ctx->total_coeffs[mbAddr][idx] > 0)) ||
-             (!meta_n.t_8x8_flag && (ctx->total_coeffs[mbAddrN][idx_n] > 0)))) * 2;
-        if (bS_list[i] == 2) continue;
-
-        /* bS = 1
-         * <=> too much writing, 8.7.2.1
-         */
-        bS_list[i] = check_mv(mbAddr, mbAddrN, idx, idx_n, idx_8x8, idx_n_8x8, ctx);
+    // horizontal
+    for (int edge = 0; edge < 4; edge++) {
+        for (int i = 0; i < 4; i++) {
+            int top_pos = edge == 0 ? 20 : edge<<2;
+            if (ctx->total_coeff_cache[top_pos+i] || ctx->total_coeff_cache[4+(edge<<2)+i]) {
+                bS_list[1][edge][i] = 2;
+            } else {
+                bS_list[1][edge][i] = check_mv(sh, 4+(edge<<2)+i, top_pos+i, ctx);
+            }
+        }
     }
 }
 
 
-always_inline void derive_alpha_beta(Picture *pic, int mbAddr, int mbAddrN, uint8_t alpha[3], uint8_t beta[3], uint8_t indexA[3], const Undo264Context *ctx) {
+static void derive_alpha_beta(Picture *pic, int mbAddr, int mbAddrN, uint8_t alpha[3], uint8_t beta[3], uint8_t indexA[3], const Undo264Context *ctx) {
     MacroblockMetadata *meta0 = &ctx->mb_metadata[mbAddr];
     MacroblockMetadata *meta1 = &ctx->mb_metadata[mbAddrN];
 
@@ -208,7 +207,7 @@ always_inline void derive_alpha_beta(Picture *pic, int mbAddr, int mbAddrN, uint
 }
 
 
-void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264Context *ctx) {
+static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264Context *ctx) {
 
     SPS *sps = sh->sps;
 
@@ -229,6 +228,9 @@ void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264
     const bool filterTopMbEdge        = filterInternalEdges && (mb->mbAddr >= mbWidth) && (!disableSliceBoundaries || mb->has_mb_b);
 
 
+    fill_ctx_cache(filterLeftMbEdge, filterTopMbEdge, mbWidth, mb, ctx->curr_pic, ctx);
+
+
     const int luma_pos   = mb->mb_y*16*widthY + mb->mb_x*16;
     const int chroma_pos = mb->mb_y*8*widthC + mb->mb_x*8;
     uint8_t *luma_base_dst = &pic->luma[luma_pos];
@@ -236,6 +238,7 @@ void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264
     uint8_t *cr_base_dst   = &pic->cr[chroma_pos];
 
     int bS_list[4] = {0, 0, 0, 0};
+    int bS_list_all[2][4][4] = {};
 
     uint8_t alphaLeft[3], betaLeft[3], indexALeft[3];
     uint8_t alphaTop[3],  betaTop[3],  indexATop[3];
@@ -243,19 +246,20 @@ void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264
 
     bool mb8x8 = ctx->mb_metadata[mb->mbAddr].t_8x8_flag;
 
+    derive_low_bS_list_fast(sh, bS_list_all, ctx);
+
+
     if (filterLeftMbEdge) {
         // x = 0
         derive_alpha_beta(pic, mbAddr, mbAddr - 1, alphaLeft, betaLeft, indexALeft, ctx);
-
         if (IS_INTRA(ctx->mb_metadata[mbAddr-1].mb_type)) {
             ctx->dsp->deblock_edge_strong_luma_v(luma_base_dst, widthY, alphaLeft[0], betaLeft[0]);
             ctx->dsp->deblock_edge_strong_chroma_v(cb_base_dst, widthC, alphaLeft[1], betaLeft[1]);
             ctx->dsp->deblock_edge_strong_chroma_v(cr_base_dst, widthC, alphaLeft[2], betaLeft[2]);
         } else {
-            derive_low_bS_list(mbAddr, mbAddr - 1, 0, 3, 0, 1, true, bS_list, ctx);
-            ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst, widthY, alphaLeft[0], betaLeft[0], indexALeft[0], bS_list);
-            ctx->dsp->deblock_edge_weak_chroma_v(cb_base_dst, widthC, alphaLeft[1], betaLeft[1], indexALeft[1], bS_list);
-            ctx->dsp->deblock_edge_weak_chroma_v(cr_base_dst, widthC, alphaLeft[2], betaLeft[2], indexALeft[2], bS_list);
+            ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst, widthY, alphaLeft[0], betaLeft[0], indexALeft[0], bS_list_all[0][0]);
+            ctx->dsp->deblock_edge_weak_chroma_v(cb_base_dst, widthC, alphaLeft[1], betaLeft[1], indexALeft[1], bS_list_all[0][0]);
+            ctx->dsp->deblock_edge_weak_chroma_v(cr_base_dst, widthC, alphaLeft[2], betaLeft[2], indexALeft[2], bS_list_all[0][0]);
         }
     }
     if (filterInternalEdges) {
@@ -263,20 +267,17 @@ void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264
 
         // x = 4
         if (!mb8x8) {
-            derive_low_bS_list(mbAddr, mbAddr, 1, 0, 0, 0, true, bS_list, ctx);
-            ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst + 4, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
+            ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst + 4, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list_all[0][1]);
         }
 
         // x = 8
-        derive_low_bS_list(mbAddr, mbAddr, 2, 1, 1, 0, true, bS_list, ctx);
-        ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst + 8, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
-        ctx->dsp->deblock_edge_weak_chroma_v(cb_base_dst + 4, widthC, alphaIn[1], betaIn[1], indexAIn[1], bS_list);
-        ctx->dsp->deblock_edge_weak_chroma_v(cr_base_dst + 4, widthC, alphaIn[2], betaIn[2], indexAIn[2], bS_list);
+        ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst + 8, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list_all[0][2]);
+        ctx->dsp->deblock_edge_weak_chroma_v(cb_base_dst + 4, widthC, alphaIn[1], betaIn[1], indexAIn[1], bS_list_all[0][2]);
+        ctx->dsp->deblock_edge_weak_chroma_v(cr_base_dst + 4, widthC, alphaIn[2], betaIn[2], indexAIn[2], bS_list_all[0][2]);
 
         // x = 12
         if (!mb8x8) {
-            derive_low_bS_list(mbAddr, mbAddr, 3, 2, 1, 1, true, bS_list, ctx);
-            ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst + 12, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
+            ctx->dsp->deblock_edge_weak_luma_v(luma_base_dst + 12, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list_all[0][3]);
         }
     }
 
@@ -290,34 +291,30 @@ void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264
             ctx->dsp->deblock_edge_strong_chroma_h(cb_base_dst, widthC, alphaTop[1], betaTop[1]);
             ctx->dsp->deblock_edge_strong_chroma_h(cr_base_dst, widthC, alphaTop[2], betaTop[2]);
         } else {
-            derive_low_bS_list(mbAddr, mbAddr - mbWidth, 0, 12, 0, 2, false, bS_list, ctx);
-            ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst, widthY, alphaTop[0], betaTop[0], indexATop[0], bS_list);
-            ctx->dsp->deblock_edge_weak_chroma_h(cb_base_dst, widthC, alphaTop[1], betaTop[1], indexATop[1], bS_list);
-            ctx->dsp->deblock_edge_weak_chroma_h(cr_base_dst, widthC, alphaTop[2], betaTop[2], indexATop[2], bS_list);
+            ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst, widthY, alphaTop[0], betaTop[0], indexATop[0], bS_list_all[1][0]);
+            ctx->dsp->deblock_edge_weak_chroma_h(cb_base_dst, widthC, alphaTop[1], betaTop[1], indexATop[1], bS_list_all[1][0]);
+            ctx->dsp->deblock_edge_weak_chroma_h(cr_base_dst, widthC, alphaTop[2], betaTop[2], indexATop[2], bS_list_all[1][0]);
         }
     }
     if (filterInternalEdges) {
         // y = 4
         if (!mb8x8) {
-            derive_low_bS_list(mbAddr, mbAddr, 4, 0, 0, 0, false, bS_list, ctx);
-            ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 4*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
+            ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 4*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list_all[1][1]);
         }
 
         // y = 8
-        derive_low_bS_list(mbAddr, mbAddr, 8, 4, 2, 0, false, bS_list, ctx);
-        ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 8*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
-        ctx->dsp->deblock_edge_weak_chroma_h(cb_base_dst + 4*widthC, widthC, alphaIn[1], betaIn[1], indexAIn[1], bS_list);
-        ctx->dsp->deblock_edge_weak_chroma_h(cr_base_dst + 4*widthC, widthC, alphaIn[2], betaIn[2], indexAIn[2], bS_list);
+        ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 8*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list_all[1][2]);
+        ctx->dsp->deblock_edge_weak_chroma_h(cb_base_dst + 4*widthC, widthC, alphaIn[1], betaIn[1], indexAIn[1], bS_list_all[1][2]);
+        ctx->dsp->deblock_edge_weak_chroma_h(cr_base_dst + 4*widthC, widthC, alphaIn[2], betaIn[2], indexAIn[2], bS_list_all[1][2]);
 
         // y = 12
         if (!mb8x8) {
-            derive_low_bS_list(mbAddr, mbAddr, 12, 8, 2, 2, false, bS_list, ctx);
-            ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 12*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
+            ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 12*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list_all[1][3]);
         }
     }
 }
 
-void deblock_macroblock_intra(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264Context *ctx) {
+static void deblock_macroblock_intra(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264Context *ctx) {
     SPS *sps = sh->sps;
 
     // make dummy mb just for accessing the neighbors afterward
@@ -401,6 +398,27 @@ void deblock_macroblock_intra(Picture *pic, SliceHeader *sh, int mbAddr, const U
         // y = 12
         if (!mb8x8) {
             ctx->dsp->deblock_edge_weak_luma_h(luma_base_dst + 12*widthY, widthY, alphaIn[0], betaIn[0], indexAIn[0], bS_list);
+        }
+    }
+}
+
+
+
+
+void init_tc0_tables(void) {
+    for (int bs0 = 0; bs0 < 4; bs0++) {
+        for (int bs1 = 0; bs1 < 4; bs1++) {
+            for (int bs2 = 0; bs2 < 4; bs2++) {
+                for (int bs3 = 0; bs3 < 4; bs3++) {
+                    for (int indexA = 0; indexA < 52; indexA++) {
+                        int8_t *table = &tc0_tables[(bs0<<6) + (bs1<<4) + (bs2<<2) + bs3][indexA][0];
+                        memset(table +  0, bs0 ? treshold_table[bs0-1][indexA] : (int8_t)-1, 4);
+                        memset(table +  4, bs1 ? treshold_table[bs1-1][indexA] : (int8_t)-1, 4);
+                        memset(table +  8, bs2 ? treshold_table[bs2-1][indexA] : (int8_t)-1, 4);
+                        memset(table + 12, bs3 ? treshold_table[bs3-1][indexA] : (int8_t)-1, 4);
+                    }
+                }
+            }
         }
     }
 }
