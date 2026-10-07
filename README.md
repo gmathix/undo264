@@ -46,7 +46,7 @@ chmod +x download_vectors.sh && chmod +d conformance_test.sh
 
 
 ## Performance
-It can reach ~56fps on a single thread on my Intel I5-10300H, on 1080p streams, without dumping the frames. 
+It can reach ~67fps on a single thread on my Intel I5-10300H, on 1080p streams, without dumping the frames. 
 The deblocking filter is the primary bottleneck ; without it, undo264 runs at 90fps on High profile content, 
 and at 150fps on Baseline profile content. 
 
