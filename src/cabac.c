@@ -51,8 +51,6 @@ void cabac_init(const Undo264Context *ctx) {
 void cabac_init_engine(const Undo264Context *ctx) {
     ctx->cactx->codIRange       = 510;
     ctx->cactx->codIOffset      = (int16_t) read_u(ctx->br, 9);
-    ctx->cactx->p_state_idx_ptr = p_state_idx;
-    ctx->cactx->val_mps_ptr     = val_mps;
 }
 
 

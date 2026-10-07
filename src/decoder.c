@@ -18,14 +18,16 @@
 
 #include "cavlc.h"
 #include "cabac.h"
-#include "intra.h"
 #include "picture.h"
 
-#include "tests/profiler.h"
-#include "util/expgolomb.h"
 #include "util/mbutil.h"
-#include "util/predutil.h"
-#include "util/sliceutil.h"
+
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <bits/fcntl-linux.h>
+#include <sys/stat.h>
+
 
 
 
@@ -33,9 +35,12 @@
 #include "slice.c"
 #undef CABAC
 #define CABAC 0
+
+
 #include "loopfilter.h"
 #include "slice.c"
 #undef CABAC
+
 
 
 int debugging             = 0;
@@ -46,20 +51,54 @@ int mb_debug              = -1;
 int nb_frames_before_stop = -1;
 
 
-Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, bool dump_monochrome) {
+void decoder_init(Undo264Context *ctx) {
 
-    if (data == NULL) return NULL;
 
-    Undo264Context *ctx = calloc(1, sizeof(Undo264Context));
-    if (!ctx) {
-        return NULL;
+    /* opening input and output files */
+
+    FILE *test_input = fopen(ctx->in_path, "rb");
+    if (!test_input) {
+        fprintf(stderr, "input file not found: %s\n", ctx->in_path);
+        exit(1);
     }
+    fclose(test_input);
 
-    ctx->data = data;
-    ctx->size = size;
+    int fd = open(ctx->in_path, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        exit(1);
+    }
+    struct stat st;
+    fstat(fd, &st);
+    ctx->data_size = st.st_size;
+
+    ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (ctx->data == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+
+
+    ctx->out_file = fopen(ctx->out_path, "wb");
+    if (!ctx->out_file) {
+        perror("fopen");
+        exit(121);
+    }
+    setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
+
+
+
+
+    /* structs initialization */
 
     CabacContext *cactx = make_cactx();
     ctx->cactx = cactx;
+
+    DSPContext *dsp_context = calloc(1, sizeof(DSPContext));
+    ctx->dsp = dsp_context;
+    dsp_init(ctx);
 
     BitReader *br = malloc(sizeof(BitReader));
     ctx->br = br;
@@ -68,32 +107,26 @@ Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, b
     ParamSets *ps = calloc(1, sizeof(ParamSets));
     ctx->ps = ps;
 
-    DSPContext *dsp_context = calloc(1, sizeof(DSPContext));
-    ctx->dsp = dsp_context;
-    dsp_init(ctx->dsp);
-
-
     ctx->current_slice = slice_alloc();
+
     ctx->dpb = make_dbp(ctx);
+
+    ctx->prf = malloc(sizeof(Profiler));
+    profiler_init(ctx->prf);
+
     ctx->pool = calloc(1, sizeof(PicturePool));
     ctx->pic_pool_initialized = false;
-
 
     ctx->scratchMb = calloc(1, sizeof(Macroblock));
     ctx->currMb = calloc(1, sizeof(Macroblock));
     ctx->prevQPY = 0;
 
+
+
+
     ctx->levelScale4x4 = calloc(6, sizeof( int16_t[52][4][4] ));
     ctx->levelScale8x8 = calloc(2, sizeof( int16_t[52][8][8] ));
 
-    ctx->out_path = out_path;
-    ctx->out_file = fopen(ctx->out_path, "wb");
-    ctx->dump_monochrome = dump_monochrome;
-    if (!ctx->out_file) {
-        perror("fopen");
-        exit(121);
-    }
-    setvbuf(ctx->out_file, NULL, _IOFBF, (size_t) 8 * 1920*1080*1.5); // 8 frame buffer for HD
 
 
 
@@ -118,13 +151,10 @@ Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, b
     ctx->qpel_pass_buffers[ 4 / 4 - 1] = ctx->qpel_pass_buf_4;
 
 
-    ctx->prf = malloc(sizeof(Profiler));
-    profiler_init(ctx->prf);
+
 
 
     ctx->initialized = true;
-
-    return ctx;
 }
 
 
@@ -216,7 +246,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 void decoder_run(Undo264Context *ctx) {
     if (!ctx->initialized) return;
 
-    BitReader nal_br = make_br(ctx->data, ctx->size);
+    BitReader nal_br = make_br(ctx->data, ctx->data_size);
 
     https://www.youtube.com/watch?v=RrESvSRNpeo
     {
@@ -262,7 +292,7 @@ void decoder_free(Undo264Context *ctx) {
     pic_pool_free(ctx->pool, ctx);
     free_cactx(ctx->cactx);
 
-    munmap((void*)ctx->data, ctx->size);
+    munmap((void*)ctx->data, ctx->data_size);
     free(ctx->br);
     free(ctx->prf);
     free(ctx->dsp);

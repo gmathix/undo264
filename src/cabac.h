@@ -20,17 +20,13 @@ extern int8_t val_mps[1024];
 typedef struct CabacContext {
     int16_t codIRange;
     int16_t codIOffset;
-
-    // pointers to arrays
-    int8_t *p_state_idx_ptr;
-    int8_t *val_mps_ptr;
 } CabacContext ;
 
 
 
 
 
-static CabacContext *make_cactx() {
+static CabacContext *make_cactx(void) {
     CabacContext *cactx = calloc(1, sizeof(CabacContext));
     return cactx;
 }

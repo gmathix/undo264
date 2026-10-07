@@ -10,11 +10,27 @@
 #include "global.h"
 
 
+typedef struct CLIOptions {
+    bool dump_monochrome;
+    bool dump_frames; // set to false when benchmarking
+
+    // those are only effective if undo264 is compiled with USE_NATIVE_ARCH set to ON, on an x86_64 architecture
+    bool use_simd;
+    bool use_sse;
+    bool use_avx2;
+} CLIOptions ;
+
 typedef struct Undo264Context {
     bool initialized;
 
+    /* input/output */
+    char *in_path;
+    char *out_path;
+    FILE *in_file;
+    FILE *out_file;
+
     const uint8_t *data;
-    size_t size;
+    size_t data_size;
     size_t global_bit_offset;
 
 
@@ -22,6 +38,7 @@ typedef struct Undo264Context {
     int maxLongTermFrameIdx;
 
     struct CabacContext *cactx;
+    struct DSPContext   *dsp;
     struct BitReader    *br;
     struct ParamSets    *ps;
     struct Picture      *curr_pic;
@@ -29,17 +46,21 @@ typedef struct Undo264Context {
     struct DPB          *dpb;
     struct Profiler     *prf;
     struct PicturePool  *pool;
-    struct DSPContext   *dsp;
+    struct Macroblock   *scratchMb;
+    struct Macroblock   *currMb;
+    struct CLIOptions   *cli_options;
+
 
     bool pic_pool_initialized;
 
 
-    // scaling lists and levelScale tables
+
+    /* scaling lists */
+
     bool seqScalingMatrixPresent;
     bool useDefaultList4x4[6];
     bool useDefaultList8x8[2];
 
-    // sequence-level scaling lists
     int16_t seqScalingList4x4[6][16];
     int16_t seqScalingList8x8[2][64];
 
@@ -58,6 +79,9 @@ typedef struct Undo264Context {
 
     struct MacroblockMetadata *mb_metadata;
     uint8_t (*total_coeffs)           [24]; // 16 values for luma, 4 values for Cb, 4 values for Cr
+
+    int8_t prevQPY;
+
 
 
     /* weighted prediction variables */
@@ -79,8 +103,7 @@ typedef struct Undo264Context {
 
 
 
-
-    /* helper inter pred buffers  */
+    /* helper buffers  */
 
     /* reference sample buffers for every MB partition dimension
      * needs 5 extra pixel length for qpel */
@@ -110,27 +133,33 @@ typedef struct Undo264Context {
     int16_t *qpel_pass_buffers[4];
 
 
-
     // small buffers used for bS derivation
     int16_t  mv_cache          [2][48];
     uint8_t  ref_cache         [2][24];
     uint8_t  total_coeff_cache    [24];
-
-
-
-    struct Macroblock *scratchMb;
-    struct Macroblock *currMb;
-    int8_t prevQPY;
-
-
-    char *out_path;
-    FILE *out_file;
-    bool dump_monochrome;
-
 } Undo264Context ;
 
 
-Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, bool dump_monochrome);
+static Undo264Context *undo264_context_make(void) {
+    Undo264Context *ctx = calloc(1, sizeof(Undo264Context));
+    if (!ctx) {
+        perror("calloc");
+        return NULL;
+    }
+
+    ctx->out_path = "output.yuv";
+
+    ctx->cli_options = calloc(1, sizeof(CLIOptions));
+    ctx->cli_options->dump_monochrome = false;
+    ctx->cli_options->dump_frames     = true;
+    ctx->cli_options->use_simd        = true;
+    ctx->cli_options->use_sse         = true;
+    ctx->cli_options->use_avx2        = true;
+
+    return ctx;
+}
+
+void decoder_init(Undo264Context *ctx);
 void decoder_run(Undo264Context *ctx);
 void decoder_free_metadata(Undo264Context *ctx);
 void decoder_alloc_metadata(Undo264Context *ctx);

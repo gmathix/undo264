@@ -50,7 +50,7 @@ typedef struct DSPContext {
 
 
 
-void dsp_init(DSPContext *dsp);
+void dsp_init(const Undo264Context *ctx);
 
 
 

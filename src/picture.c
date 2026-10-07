@@ -71,6 +71,8 @@ void picture_free(Picture *p) {
 }
 
 void dump_picture(Picture *p, const Undo264Context *ctx) {
+    if (!ctx->cli_options->dump_frames) return;
+
     int top    = ctx->ps->sps->crop_top_offset;
     int bottom = ctx->ps->sps->crop_bottom_offset;
     int left   = ctx->ps->sps->crop_left_offset;
@@ -81,7 +83,7 @@ void dump_picture(Picture *p, const Undo264Context *ctx) {
         fwrite(&p->luma[i*p->widthY + left],   1, p->widthCropY, ctx->out_file);
     }
 
-    if (!ctx->dump_monochrome) {
+    if (!ctx->cli_options->dump_monochrome) {
         for (int i = top/2; i < p->heightC - bottom/2; i++) {
             fwrite(&p->cb[i*p->widthC + left/2], 1, p->widthCropC, ctx->out_file);
         }

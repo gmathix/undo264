@@ -64,7 +64,9 @@
 
 
 // scalar versions by default
-static void dsp_init_c(DSPContext *dsp) {
+static void dsp_init_c(const Undo264Context *ctx) {
+    DSPContext *dsp = ctx->dsp;
+
     dsp->weigh_bi_funcs[BLOCK_16x16] = weigh_bi_16x16;
     dsp->weigh_bi_funcs[BLOCK_16x8]  = weigh_bi_16x8;
     dsp->weigh_bi_funcs[BLOCK_8x16]  = weigh_bi_8x16;
@@ -120,9 +122,11 @@ static void dsp_init_c(DSPContext *dsp) {
 
 
 
-void dsp_init(DSPContext *dsp) {
-    dsp_init_c(dsp);
+void dsp_init(const Undo264Context *ctx) {
+    dsp_init_c(ctx);
 #if ARCH_X86
-    dsp_init_x86(dsp);
+    if (ctx->cli_options->use_simd) {
+        dsp_init_x86(ctx);
+    }
 #endif
 }
