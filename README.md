@@ -58,9 +58,11 @@ and at 150fps on Baseline profile content.
 
 ```shell
 cmake --preset release
-cmake --build --preset release -j
-./build/release/undo264 <input.264> <output.yuv>
+cmake --build --preset release -j $(nproc)
+cmake --install build/release --prefix /usr/local
+undo264 -i <input.264> -o <output.yuv>
 ```
+See ```undo264 --help``` to view command-line options. 
 
 ### Presets
 
