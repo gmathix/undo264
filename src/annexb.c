@@ -99,6 +99,7 @@ NalUnit *next_nal_unit(BitReader *br) {
            bitreader_peek_bits(br, 32) != 1) {
         bitreader_skip_bits(br, 8);
         if (bitreader_bits_remaining(br) < 8) {
+            free(nal);
             return NULL;
         }
     }
