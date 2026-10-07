@@ -270,8 +270,13 @@ void decoder_free(Undo264Context *ctx) {
     free(ctx->prf);
     free(ctx->dsp);
 
-    free(ctx->ps->sps);
-    free(ctx->ps->pps);
+
+    for (int i = 0; i < MAX_SPS_COUNT; i++) {
+        if (ctx->ps->sps_list[i]) free(ctx->ps->sps_list[i]);
+    }
+    for (int i = 0; i < MAX_PPS_COUNT; i++) {
+        if (ctx->ps->pps_list[i]) free(ctx->ps->pps_list[i]);
+    }
     free(ctx->ps);
 
     free(ctx->levelScale4x4);
