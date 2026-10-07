@@ -38,7 +38,7 @@ which is supposed to be bit-exact.
 
 To run the test suites in the test/ folder : 
 ```shell
-chmod +x download_vectors.sh && chmod +d conformance_test.sh
+chmod +x download_vectors.sh && chmod +x conformance_test.sh
 ./download_vectors.sh # may take a while to download and extract
 ./conformance_test.sh AVCv1
 ./conformance_test.sh FRExt
@@ -52,29 +52,44 @@ and at 150fps on Baseline profile content.
 
 ## Building
 
-Requirements: CMake >= 3.20, a C11 compiler (GCC or Clang) and optionally Ninja.
+**Requirements:** CMake ≥ 3.20, a C11 compiler (GCC or Clang), and `make`.
 
 ### Quick start
+
 ```shell
 cmake --preset release
-cmake --build --preset release
+cmake --build --preset release -j
 ./build/release/undo264 <input.264> <output.yuv>
 ```
 
-### Available presets
+### Presets
 
-| Preset    | Build type      | Notes                                  |
-|-----------|------------------|-----------------------------------------|
-| `release` | Release (-O3)    | Default for normal use                  |
-| `debug`   | Debug + ASan/UBSan | Use while developing / hunting bugs   |
+| Preset    | Build type         | Purpose                                      |
+|-----------|--------------------|----------------------------------------------|
+| `release` | Release (`-O3`)    | Normal use                                   |
+| `debug`   | Debug + ASan/UBSan | Development and bug hunting (much slower)    |
+
+The resulting binary is tuned to the machine that built it and may crash with an illegal instruction on older CPUs, so don't
+build with a preset on one machine and run the binary on another.
+
+### Without presets
+
+```shell
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+```
+
+Add `-G Ninja` to either configure command if you prefer Ninja over Make.
 
 ### Options
 
-| Option            | Default | Effect                                     |
-|--------------------|---------|--------------------------------------------|
-| `USE_NATIVE_ARCH`  | OFF     | Adds `-march=native`. Only for local builds |
-| `USE_SANITIZERS`   | OFF     | Enables ASan + UBSan                       |
-| `BUILD_TOOLS`      | ON      | Builds `gen_rgb_video` and `compare_streams` |
+Pass with `-D<option>=ON|OFF` at configure time.
+
+| Option            | Default | Effect                                                         |
+|-------------------|---------|----------------------------------------------------------------|
+| `USE_NATIVE_ARCH` | OFF     | Adds `-march=native`. SIMD is currently x86-only; other architectures build and run using the plain C paths. |
+| `USE_SANITIZERS`  | OFF     | Builds with ASan + UBSan                                       |
+| `BUILD_TOOLS`     | ON      | Also builds `gen_rgb_video` and `compare_streams`              |
 
 ### Installing
 

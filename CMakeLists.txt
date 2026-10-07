@@ -43,10 +43,19 @@ set(UNDO264_SOURCES
 add_library(undo264_warnings INTERFACE)
 target_compile_options(undo264_warnings INTERFACE
     $<$<C_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-    $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<BOOL:${USE_NATIVE_ARCH}>>:-march=native>
     $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<CONFIG:Release>>:-O3>
     $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug>>:-O0 -g3>
 )
+
+include(CheckCCompilerFlag)
+if(USE_NATIVE_ARCH)
+    check_c_compiler_flag(-march=native HAVE_MARCH_NATIVE)
+    if(HAVE_MARCH_NATIVE)
+        target_compile_options(undo264_warnings INTERFACE -march=native)
+    else()
+        message(WARNING "USE_NATIVE_ARCH requested but -march=native is unsupported; ignoring")
+    endif()
+endif()
 
 add_library(undo264_sanitizers INTERFACE)
 if(USE_SANITIZERS)
@@ -62,9 +71,17 @@ target_include_directories(undo264 PRIVATE src)
 target_compile_definitions(undo264 PRIVATE _DEFAULT_SOURCE
     $<$<CONFIG:Debug>:SLICES_LOG=1>
 )
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    target_compile_definitions(undo264 PRIVATE ARCH_X86=1)
+include(CheckCCompilerFlag)
+if(USE_NATIVE_ARCH)
+    check_c_compiler_flag(-march=native HAVE_MARCH_NATIVE)
+    if(HAVE_MARCH_NATIVE)
+        target_compile_definitions(undo264 PRIVATE ARCH_X86=1)
+    else()
+        message(WARNING "USE_NATIVE_ARCH requested but -march=native is unsupported; ignoring")
+    endif()
 endif()
+
+
 
 
 # optional helper tools
