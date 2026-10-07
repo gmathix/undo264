@@ -124,15 +124,13 @@ typedef struct Undo264Context {
 
 
     char *out_path;
-    char *log_path;
     FILE *out_file;
-    FILE *log_file;
     bool dump_monochrome;
 
 } Undo264Context ;
 
 
-Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, char *log_path, bool dump_monochrome);
+Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, bool dump_monochrome);
 void decoder_run(Undo264Context *ctx);
 void decoder_free_metadata(Undo264Context *ctx);
 void decoder_alloc_metadata(Undo264Context *ctx);

@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
 
     char *in_path  = argv[1];
     char *out_path = argc > 2 ? argv[2] : "output.yuv";
-    char *log_path = "../log/log.txt";
 
 
     FILE *test = fopen(in_path, "rb");
@@ -59,7 +58,7 @@ int main(int argc, char *argv[]) {
     madvise(data, size, MADV_SEQUENTIAL);
 
 
-    Undo264Context *context = decoder_init(data, size, out_path, log_path, false);
+    Undo264Context *context = decoder_init(data, size, out_path, false);
 
 
     decoder_run(context);

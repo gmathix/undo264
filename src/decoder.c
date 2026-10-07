@@ -46,7 +46,7 @@ int mb_debug              = -1;
 int nb_frames_before_stop = -1;
 
 
-Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, char *log_path, bool dump_monochrome) {
+Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, bool dump_monochrome) {
 
     if (data == NULL) return NULL;
 
@@ -94,9 +94,6 @@ Undo264Context *decoder_init(const uint8_t *data, size_t size, char *out_path, c
         exit(121);
     }
     setvbuf(ctx->out_file, NULL, _IOFBF, (size_t) 8 * 1920*1080*1.5); // 8 frame buffer for HD
-
-    ctx->log_path = log_path;
-    ctx->log_file = fopen(ctx->log_path, "w");
 
 
 
