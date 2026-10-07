@@ -33,6 +33,7 @@
 #include "slice.c"
 #undef CABAC
 #define CABAC 0
+#include "loopfilter.h"
 #include "slice.c"
 #undef CABAC
 
