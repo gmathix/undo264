@@ -246,7 +246,6 @@ static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
     if (sh->first_mb == 0) {
         ctx->curr_pic = pic_pool_get(ctx->pool);
         picture_reset(ctx->curr_pic);
-        // ctx->curr_pic = picture_alloc(sh, ctx);
         ctx->curr_pic->sh = sh;
         ctx->curr_pic->nal_ref_idc = nal_unit->ref_idc;
         ctx->curr_pic->pic_num = sh->frame_num;
@@ -254,6 +253,7 @@ static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
         derive_poc(ctx->dpb, ctx->curr_pic);
         ctx->curr_pic->non_existing = false;
     } else {
+        free(ctx->curr_pic->sh);
         ctx->curr_pic->sh = sh;
     }
     ctx->current_slice->p_pic = ctx->curr_pic;
