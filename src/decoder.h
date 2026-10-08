@@ -13,6 +13,7 @@
 typedef struct CLIOptions {
     bool dump_monochrome;
     bool dump_frames; // set to false when benchmarking
+    bool deblock;
 
     // those are only effective if undo264 is compiled with USE_NATIVE_ARCH set to ON, on an x86_64 architecture
     bool use_simd;
@@ -151,6 +152,7 @@ static Undo264Context *undo264_context_make(void) {
 
     ctx->cli_options = calloc(1, sizeof(CLIOptions));
     ctx->cli_options->dump_monochrome = false;
+    ctx->cli_options->deblock         = true;
     ctx->cli_options->dump_frames     = true;
     ctx->cli_options->use_simd        = true;
     ctx->cli_options->use_sse         = true;

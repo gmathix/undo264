@@ -32,6 +32,7 @@ static void print_usage(void) {
         "   --no-sse              disable SSE SIMD functions\n"
         "   --no-avx2             disable AVX2 SIMD functions\n"
         "   --no-output           don't write to an output file (use when benchmarking)\n"
+        "   --no-deblock          disable in-loop deblocking filter\n"
     );
 }
 
@@ -70,6 +71,8 @@ static int parse_options(int argc, char *argv[], Undo264Context *ctx) {
             ctx->cli_options->use_avx2 = false;
         } else if (!strcmp(arg, "--no-output")) {
             ctx->cli_options->dump_frames = false;
+        } else if (!strcmp(arg, "--no-deblock")) {
+            ctx->cli_options->deblock = false;
         } else {
             fprintf(stderr, "unrecognized option : %s\n", arg);
             return 1;
