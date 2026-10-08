@@ -19,7 +19,7 @@
 
 
 
-DECODER="../build/release/undo264"
+DECODER="../../build/release/undo264"
 INPUT_DIR="$1"
 
 if [[ $# -ne 1 ]]; then
@@ -97,7 +97,7 @@ while IFS= read -r -d '' subdir; do
 
 
     # decode with undo264
-    "$DECODER" "$bitstream" "$undo264_out" > "${subdir}/${stream_name}_undo264.log" 2>&1
+    "$DECODER" -i "$bitstream" -o "$undo264_out" > "${subdir}/${stream_name}_undo264.log" 2>&1
     ret=$?
     if [[ $ret -eq 0 ]]; then
         echo "  [OK]    Undo264 -> $(basename "$undo264_out")"

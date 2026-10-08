@@ -45,10 +45,24 @@ chmod +x download_vectors.sh && chmod +x conformance_test.sh
 ```
 
 
-## Performance
-It can reach ~67fps on a single thread on my Intel I5-10300H, on 1080p streams, without dumping the frames. 
-The deblocking filter is the primary bottleneck ; without it, undo264 runs at 90fps on High profile content, 
-and at 150fps on Baseline profile content.
+## Benchmarks
+
+
+![benchmarks.png](test/benchmark/benchmarks.png)
+
+*Benchmark computed by medians of 5 runs for each of the 5 bitstreams 
+(the Forza Horizon 5 trailer in 1080p, re-encoded with different profiles and settings for each set of runs)*
+
+Below is a table with the decoding speeds in FPS shown above :
+
+|                         |  undo264 scalar  | undo264 SSE   | undo264 SSE+AVX2  |  FFmpeg NOASM  |  FFmpeg ASM  |  edge264  |  
+|-------------------------|:----------------:|:-------------:|:-----------------:|:--------------:|:------------:|:---------:|
+| FH5 Baseline CAVLC      |       58.9       |     82.7      |       85.1        |       90       |    233.4     |   251.3   |  
+| FH5 Main CABAC          |       47.5       |     60.8      |       65.3        |      84.6      |    225.2     |    238    |
+| FH5 High CABAC          |       49.2       |     62.5      |       65.1        |      88.6      |     233      |   241.3   |
+| FH5 High no deblock     |       61.8       |     80.8      |       82.8        |     121.2      |     242      |   259.5   |
+| FH5 Baseline no deblock |      114.3       |      140      |       139.7       |     176.4      |     356      |   377.4   |
+
 
 ## Building
 
