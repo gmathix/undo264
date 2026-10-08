@@ -3,7 +3,7 @@
 A H.264 decoder written in C
 
 
-## Features and Scope
+# Features and Scope
 Baseline profile, Main and High profile:
 - Single threaded
 - CAVLC (Context-Adaptive Variable Length Coding)
@@ -26,7 +26,7 @@ Does and will not support :
 - Profiles: CAVLC 4:4:4, High 10-bit, High 4:2:2, High 4:4:4
 
 
-## Correctness and Testing
+# Correctness and Testing
 
 Undo264 gives bit-exact output on all official ITU-T conformance bitstreams for Baseline, Main and High profiles
 (AVCv1 and FRExt suites), excluding bitstreams that are out of this decoder's scope. 
@@ -45,7 +45,7 @@ chmod +x download_vectors.sh && chmod +x conformance_test.sh
 ```
 
 
-## Benchmarks
+# Benchmarks
 
 
 ![benchmarks.png](test/benchmark/benchmarks.png)
@@ -64,7 +64,7 @@ Below is a table with the decoding speeds in FPS shown above :
 | FH5 Baseline no deblock |      114.3       |      140      |       139.7       |     176.4      |     356      |   377.4   |
 
 
-## Architecture 
+# Architecture 
 
 ![architecture_diagram.png](architecture_diagram.png)
 *Diagram describing the architecture of H.264 decoding*
@@ -72,7 +72,7 @@ Below is a table with the decoding speeds in FPS shown above :
 The SIMD/scalar functions dispatch is done at runtime, using a DSPContext structure that holds function pointers,
 allowing runtime dispatch with CPU features detection. 
 
-## Building
+# Building
 
 **Requirements:** CMake ≥ 3.20, a C11 compiler (GCC or Clang), and `make`.
 
@@ -122,5 +122,5 @@ cmake --install build/release --prefix /usr/local
 ```
 
 
-## License
+# License
 MIT, see LICENSE file for details.
