@@ -64,6 +64,14 @@ Below is a table with the decoding speeds in FPS shown above :
 | FH5 Baseline no deblock |      114.3       |      140      |       139.7       |     176.4      |     356      |   377.4   |
 
 
+## Architecture 
+
+![architecture_diagram.png](architecture_diagram.png)
+*Diagram describing the architecture of H.264 decoding*
+
+The SIMD/scalar functions dispatch is done at runtime, using a DSPContext structure that holds function pointers,
+allowing runtime dispatch with CPU features detection. 
+
 ## Building
 
 **Requirements:** CMake ≥ 3.20, a C11 compiler (GCC or Clang), and `make`.
