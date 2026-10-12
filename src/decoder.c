@@ -30,12 +30,12 @@
 #ifdef UNIX
 #include <unistd.h>
 #include <bits/fcntl-linux.h>
+#include <sys/mman.h>
 #endif
 
 #ifdef WIN32
 #include <Windows.h>
 #endif
-#include <Windows.h>
 
 #define CABAC 1
 #include "slice.c"
