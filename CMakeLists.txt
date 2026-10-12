@@ -1,6 +1,7 @@
 # ==============================================================================
 # undo264 — CMakeLists.txt,
 # Generated with AI assistance with Claude Sonnet 5.5
+# Inspired by edge264's Makefile
 #
 # Supported targets:   macOS, Linux, Windows (MinGW-w64), WebAssembly (Emscripten)
 # Supported compilers: GNU GCC and LLVM Clang (AppleClang included)
