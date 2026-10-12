@@ -6,8 +6,12 @@
 #define TOY_H264_DECODER_H
 
 
-
 #include "global.h"
+
+
+#ifdef WIN32
+#include <Windows.h>
+#endif
 
 
 typedef struct CLIOptions {
@@ -27,8 +31,14 @@ typedef struct Undo264Context {
     /* input/output */
     char *in_path;
     char *out_path;
-    FILE *in_file;
     FILE *out_file;
+
+    // input file
+#ifdef WIN32
+    LPVOID lpBasePtr;
+    HANDLE hFile;
+    HANDLE hMap;
+#endif
 
     const uint8_t *data;
     size_t data_size;

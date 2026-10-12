@@ -24,12 +24,18 @@
 
 
 #include <fcntl.h>
-#include <unistd.h>
-#include <bits/fcntl-linux.h>
+
 #include <sys/stat.h>
 
+#ifdef UNIX
+#include <unistd.h>
+#include <bits/fcntl-linux.h>
+#endif
 
-
+#ifdef WIN32
+#include <Windows.h>
+#endif
+#include <Windows.h>
 
 #define CABAC 1
 #include "slice.c"
@@ -63,22 +69,76 @@ void decoder_init(Undo264Context *ctx) {
     }
     fclose(test_input);
 
-    int fd = open(ctx->in_path, O_RDONLY);
-    if (fd < 0) {
-        perror("open");
-        exit(1);
-    }
-    struct stat st;
-    fstat(fd, &st);
-    ctx->data_size = st.st_size;
 
-    ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    close(fd);
-    if (ctx->data == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
-    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+    #ifdef UNIX
+        int fd = open(ctx->in_path, O_RDONLY);
+        if (fd < 0) {
+            perror("open");
+            exit(1);
+        }
+        struct stat st;
+        fstat(fd, &st);
+        if (st.st_size == 0) {
+            fprintf(stderr, "Opening input file : file is empty\n");
+            close(fd);
+            exit(1);
+        }
+        ctx->data_size = st.st_size;
+
+        ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        close(fd);
+        if (ctx->data == MAP_FAILED) {
+            perror("mmap");
+            exit(1);
+        }
+        madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+    #endif
+
+    #ifdef WIN32
+        TCHAR *lpFileName = TEXT(ctx->in_path);
+        HANDLE hFile;
+        HANDLE hMap;
+        LPVOID lpBasePtr;
+        LARGE_INTEGER liFileSize;
+
+        hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+        if (hFile == INVALID_HANDLE_VALUE) {
+            fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
+            exit(1);
+        }
+        if (!GetFileSizeEx(hFile, &liFileSize)) {
+            fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
+            CloseHandle(hFile);
+            exit(1);
+        }
+        if (liFileSize.QuadPart == 0) {
+            fprintf(stderr, "Opening input file : file is empty\n");
+            CloseHandle(hFile);
+            exit(1);
+        }
+
+        hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+        if (hMap == 0) {
+            fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
+            CloseHandle(hFile);
+            exit(1);
+        }
+
+        lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
+        if (lpBasePtr == NULL) {
+            fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
+            CloseHandle(hFile);
+            CloseHandle(hMap);
+            exit(1);
+        }
+        ctx->data = lpBasePtr;
+        ctx->data_size = (size_t)liFileSize.QuadPart;
+        ctx->lpBasePtr = lpBasePtr;
+        ctx->hMap = hMap;
+        ctx->hFile = hFile;
+    #endif
+
+
 
 
     ctx->out_file = fopen(ctx->out_path, "wb");
@@ -294,7 +354,16 @@ void decoder_free(Undo264Context *ctx) {
     pic_pool_free(ctx->pool, ctx);
     free_cactx(ctx->cactx);
 
-    munmap((void*)ctx->data, ctx->data_size);
+    #ifdef UNIX
+        munmap((void*)ctx->data, ctx->data_size);
+    #endif
+
+    #ifdef WIN32
+        UnmapViewOfFile(ctx->lpBasePtr);
+        CloseHandle(ctx->hMap);
+        CloseHandle(ctx->hFile);
+    #endif
+
     free(ctx->br);
     free(ctx->prf);
     free(ctx->dsp);

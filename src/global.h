@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <limits.h>
 #include <assert.h>
 
@@ -59,7 +58,7 @@ extern int poc_debug;
 
 
 
-enum NalUnitType : uint8_t {
+enum NalUnitType {
     NAL_UNSPECIFIED = 0,
     NAL_CODED_SLICE_OF_NON_IDR_PICTURE = 1,
     NAL_CODED_SLICE_DATA_PARTITION_A = 2,
@@ -102,7 +101,7 @@ enum NalUnitType : uint8_t {
 } ;
 
 
-enum Profile : uint8_t {
+enum Profile {
     PROFILE_CAVLC_444       =  44,
     PROFILE_BASELINE        =  66,
     PROFILE_MAIN            =  77,

@@ -10,13 +10,12 @@
 
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#ifdef UNIX
 #include <unistd.h>
+#endif
 
 #include "tests/profiler.h"
-
-#include "sys/mman.h"
-
-
 
 
 

@@ -3,8 +3,10 @@
   "configurePresets": [
     {
       "name": "release",
+      "displayName": "Release (Unix Makefiles)",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/release",
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "USE_NATIVE_ARCH": "ON"
@@ -12,17 +14,45 @@
     },
     {
       "name": "debug",
+      "displayName": "Debug + sanitizers (Unix Makefiles)",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/debug",
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "USE_SANITIZERS": "ON",
+        "SANITIZE": "address,undefined",
         "USE_NATIVE_ARCH": "OFF"
+      }
+    },
+    {
+      "name": "win-release",
+      "displayName": "Windows Release (Ninja, MinGW GCC/Clang)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/win-release",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "USE_NATIVE_ARCH": "ON",
+        "COPY_MINGW_RUNTIME": "ON"
+      }
+    },
+    {
+      "name": "win-debug",
+      "displayName": "Windows Debug (Ninja, MinGW GCC/Clang)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/win-debug",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_NATIVE_ARCH": "OFF",
+        "COPY_MINGW_RUNTIME": "ON"
       }
     }
   ],
   "buildPresets": [
     { "name": "release", "configurePreset": "release" },
-    { "name": "debug", "configurePreset": "debug" }
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "win-release", "configurePreset": "win-release" },
+    { "name": "win-debug", "configurePreset": "win-debug" }
   ]
 }
