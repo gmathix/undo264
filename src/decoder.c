@@ -29,7 +29,6 @@
 
 #ifdef UNIX
 #include <unistd.h>
-#include <fnctl.h>
 #include <sys/mman.h>
 #endif
 
