@@ -109,7 +109,7 @@ target_compile_options(undo264_warnings INTERFACE
         -Wall -Wextra -Wpedantic
         -flax-vector-conversions -Wno-override-init
         $<$<CONFIG:Release>:-O3>
-        $<$<CONFIG:Debug>:-O0 -g3>
+        $<$<CONFIG:Debug,DebugASAN>:-O0 -g3>
 )
 
 # ---- Architecture ------------------------------------------------------------
@@ -191,7 +191,7 @@ add_executable(undo264 ${UNDO264_SOURCES})
 target_link_libraries(undo264 PRIVATE ${UNDO264_LIBM} undo264_warnings undo264_sanitizers undo264_link)
 target_include_directories(undo264 PRIVATE src)
 target_compile_definitions(undo264 PRIVATE
-        $<$<CONFIG:Debug>:SLICES_LOG=1>
+        $<$<CONFIG:Debug,DebugASAN>:SLICES_LOG=1>
 )
 if(WIN32)
     target_compile_definitions(undo264 PRIVATE WIN32)

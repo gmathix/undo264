@@ -14,12 +14,23 @@
     },
     {
       "name": "debug",
-      "displayName": "Debug + sanitizers (Unix Makefiles)",
+      "displayName": "Debug (Unix Makefiles)",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/debug",
       "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "USE_NATIVE_ARCH": "OFF"
+      }
+    },
+    {
+      "name": "debug_asan",
+      "displayName": "Debug + sanitizers (Unix Makefiles)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/debug_asan",
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "DebugASAN",
         "SANITIZE": "address,undefined",
         "USE_NATIVE_ARCH": "OFF"
       }
