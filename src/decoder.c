@@ -29,7 +29,7 @@
 
 #ifdef UNIX
 #include <unistd.h>
-#include <bits/fcntl-linux.h>
+#include <fnctl.h>
 #include <sys/mman.h>
 #endif
 
