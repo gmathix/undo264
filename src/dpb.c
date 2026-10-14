@@ -7,12 +7,12 @@
 
 /*
  * This is quite a big file so here's a guide to help you find your way :
- * - l.34-107  : ref picture list sorting utils
- * - l.111-220 : ref picture numbers management
- * - l.224-320 : internal picture slots management
- * - l.326-441 : MMCOs
- * - l.446-779 : ref picture list management
- * - l.784-end : rest of the public API
+ * - l.35-106  : ref picture list sorting utils
+ * - l.110-219 : ref picture numbers management
+ * - l.223-357 : internal picture slots management
+ * - l.363-478 : MMCOs
+ * - l.483-833 : ref picture list management
+ * - l.838-end : rest of the public API
  */
 
 
@@ -249,30 +249,49 @@ static void output_pic(int idx, DPB *dpb) {
     if (!pic->non_existing)
         dump_picture(pic, dpb->ctx);
     pic->is_output = true;
-    free(pic->sh);
-
-    pic_pool_getback(pic, dpb->ctx->pool);
-    dpb->slots[idx] = NULL;
-    dpb->fullness--;
     dpb->pictures_dumped++;
 }
 
-static int output_oldest_pic(DPB *dpb) {
+static void remove_unused_pic(int idx, DPB *dpb) {
+    Picture *pic = dpb->slots[idx];
+    if (!pic || pic->dpb_status != UNUSED_REF) return;
+
+    free(pic->sh);
+    pic_pool_getback(pic, dpb->ctx->pool);
+    dpb->fullness--;
+    dpb->slots[idx] = NULL;
+}
+
+static void output_and_free_pic(int idx, DPB *dpb) {
+    Picture *pic = dpb->slots[idx];
+    if (!pic) return;
+
+    if (!pic->is_output) output_pic(idx, dpb);
+
+    free(pic->sh);
+    pic_pool_getback(pic, dpb->ctx->pool);
+    dpb->fullness--;
+    dpb->slots[idx] = NULL;
+}
+
+static int find_oldest_pic(int min_poc_exclude, DPB *dpb) {
     int min_poc = INT32_MAX;
     int min_idx = -1;
     for (int i = 0; i < dpb->size; i++) {
         Picture *pic = dpb->slots[i];
-        if (pic != NULL && pic->poc < min_poc && !pic->is_output) {
-
+        if (pic != NULL && pic->poc < min_poc && pic->poc > min_poc_exclude) {
             min_poc = pic->poc;
             min_idx = i;
         }
     }
-    if (min_idx != -1) {
-        output_pic(min_idx, dpb);
-    }
-
     return min_idx;
+}
+static int output_and_free_oldest_pic(DPB *dpb) {
+    int idx = find_oldest_pic(INT32_MIN, dpb);
+    if (idx != -1) {
+        output_and_free_pic(idx, dpb);
+    }
+    return idx;
 }
 
 static int bump(DPB *dpb) {
@@ -281,7 +300,26 @@ static int bump(DPB *dpb) {
             return i;
         }
     }
-    return output_oldest_pic(dpb);
+    int idx;
+    int min_poc_exclude = INT32_MIN;
+    /* loop until we find the oldest picture that is unused for reference.
+     * when we find an old picture that hasn't been output and is still a reference frame, we output it
+     * and leave it in the dpb, and we keep searching until a slot gets freed. */
+    do {
+        idx = find_oldest_pic(min_poc_exclude, dpb);
+        if (idx != -1) {
+            Picture *pic = dpb->slots[idx];
+            min_poc_exclude = pic->poc;
+            if (!pic->is_output) {
+                output_pic(idx, dpb);
+            }
+            if (pic->dpb_status == UNUSED_REF) {
+                remove_unused_pic(idx, dpb);
+            }
+        }
+    } while (dpb->fullness == dpb->size);
+
+    return idx;
 }
 
 static int sliding_window_marking(SliceHeader *sh, DPB *dpb) {
@@ -422,11 +460,11 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
                 ctx->dpb->mmco_5_prev_occured = true;
                 pic->frame_num = 0;
                 for (int i = 0; i < ctx->dpb->size; i++) {
-                    output_oldest_pic(ctx->dpb);
+                    output_and_free_oldest_pic(ctx->dpb);
                 }
                 for (int i = 0; i < ctx->dpb->size; i++) {
                     if (ctx->dpb->slots[i] && ctx->dpb->slots[i]->non_existing) {
-                        output_pic(i, ctx->dpb);
+                        output_and_free_pic(i, ctx->dpb);
                     }
                 }
                 ctx->curr_pic->poc = 0;
@@ -443,6 +481,19 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
 
 
 /** ==================== REFERENCE PICTURE LISTS MANAGEMENT ==================== **/
+
+static void print_ref_lists(Picture *pic, DPB *dpb) {
+    printf("** CurrPOC: %d L0:\n", pic->poc);
+    for (int i = 0; i < pic->sh->num_ref_idx_l0_active_minus1+1; i++) {
+        printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->lists[L0][1+i]->poc, dpb->lists[L0][1+i]->pic_num);
+    }
+    if (IS_B_SLICE(pic->sh->slice_type)) {
+        printf("** CurrPOC: %d L1:\n", pic->poc);
+        for (int i = 0; i < pic->sh->num_ref_idx_l1_active_minus1+1; i++) {
+            printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->lists[L1][1+i]->poc, dpb->lists[L1][1+i]->pic_num);
+        }
+    }
+}
 
 void init_ref_pic_lists(DPB *dpb, SliceHeader *sh) {
     dpb_empty_ref_lists(dpb);
@@ -672,6 +723,10 @@ void ref_pic_list_modification(uint8_t type, Slice *slice, int maxFrameNum, int 
             #endif
         }
     }
+
+#if SLICES_LOG
+    print_ref_lists(ctx->curr_pic, ctx->dpb);
+#endif
 }
 
 /* 7.3.3.3 */
@@ -702,7 +757,7 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
                 // picture was marked unused
                 Picture *pic = dpb->slots[idx];
                 if (pic->non_existing) {
-                    output_pic(idx, dpb);
+                    output_and_free_pic(idx, dpb);
                 } else {
                     idx = -1;
                 }
@@ -784,7 +839,7 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
 
 void dpb_flush(DPB *dpb) {
 	for (int i = 0; i < dpb->size; i++) {
-		output_oldest_pic(dpb);
+		output_and_free_oldest_pic(dpb);
 	}
 }
 
@@ -799,17 +854,16 @@ void dpb_free(DPB *dpb) {
 
 
 void store_picture(DPB *dpb, Picture *pic) {
-    // derive_poc(dpb, pic);
     decode_pic_nums(dpb, pic->sh->frame_num);
 
     dpb->mmco_5_prev_occured = false;
     if (pic->sh->idr_pic_flag) {
         for (int i = 0; i < dpb->size; i++) {
-            output_oldest_pic(dpb);
+            output_and_free_oldest_pic(dpb);
         }
         for (int i = 0; i < dpb->size; i++) {
             if (dpb->slots[i] && dpb->slots[i]->non_existing) {
-                output_pic(i, dpb);
+                output_and_free_pic(i, dpb);
             }
         }
         dpb->fullness = 0;
