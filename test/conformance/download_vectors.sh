@@ -36,9 +36,22 @@ unzip_subdirs() {
   done <<< "$(ls $1)"
 }
 
+# remove encoding tracefiles which are huge
+remove_tracefiles() {
+  while read -r; do
+    trace=$(find . -d -iname "*trace*.txt" -o -iname "*.trc" -o -iname "*.log" )
+    rm -f $trace
+  done <<< "$(ls $1)"
+}
+
 
 echo "Decompressing AVCv1..."
 unzip_subdirs AVCv1
+remove_tracefiles AVCv1
 
 echo "Decompressing FRExt..."
 unzip_subdirs FRExt
+remove_tracefiles FRExt
+
+rm AVCv1.zip
+rm FRExt.zip
