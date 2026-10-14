@@ -74,6 +74,7 @@ static int parse_options(int argc, char *argv[], Undo264Context *ctx) {
             ctx->cli_options->deblock = false;
         } else {
             fprintf(stderr, "unrecognized option : %s\n", arg);
+            print_usage();
             return 1;
         }
     }
