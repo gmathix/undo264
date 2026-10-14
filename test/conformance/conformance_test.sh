@@ -168,6 +168,12 @@ while IFS= read -r -d '' subdir; do
         echo "  [DIFF]  not bit-exact ($(basename "$undo264_out") is empty)"
     fi
 
+
+    rm $undo264_out
+    if [[ $use_ffmpeg -eq 1 ]]; then
+      rm $dec_ref
+    fi
+
 done < <(find "$INPUT_DIR" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
 
 echo
