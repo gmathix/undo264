@@ -83,7 +83,7 @@ static int sortToRefList(DPB *dpb, bool descending, int list, int *idx,
                 pic->in_list[list] = true;
             }
 
-            dpb->lists[list][1+(*idx)++] = pic;
+            dpb->refs[list][1+(*idx)++] = pic;
 
             nbAdded++;
             prevBest = best;
@@ -231,8 +231,8 @@ static void dpb_empty_ref_lists(DPB *dpb) {
         }
     }
     for (int i = 0; i < dpb->lists_size; i++) {
-        dpb->lists[L0][i] = NULL;
-        dpb->lists[L1][i] = NULL;
+        dpb->refs[L0][i] = NULL;
+        dpb->refs[L1][i] = NULL;
     }
     dpb->effective_ref_idx_l0_active = 0;
     dpb->effective_ref_idx_l1_active = 0;
@@ -480,12 +480,12 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
 static void print_ref_lists(Picture *pic, DPB *dpb) {
     printf("** CurrPOC: %d L0:\n", pic->poc);
     for (int i = 0; i < pic->sh->num_ref_idx_l0_active_minus1+1; i++) {
-        printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->lists[L0][1+i]->poc, dpb->lists[L0][1+i]->pic_num);
+        printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->refs[L0][1+i]->poc, dpb->refs[L0][1+i]->pic_num);
     }
     if (IS_B_SLICE(pic->sh->slice_type)) {
         printf("** CurrPOC: %d L1:\n", pic->poc);
         for (int i = 0; i < pic->sh->num_ref_idx_l1_active_minus1+1; i++) {
-            printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->lists[L1][1+i]->poc, dpb->lists[L1][1+i]->pic_num);
+            printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->refs[L1][1+i]->poc, dpb->refs[L1][1+i]->pic_num);
         }
     }
 }
@@ -576,20 +576,20 @@ void init_ref_pic_lists(DPB *dpb, SliceHeader *sh) {
         /* check if l0 == l1 */
         bool equal = true;
         for (int i = 0; i < MAX_NUM_REF_PICTURES; i++) {
-            if (dpb->lists[L0][1+i] != dpb->lists[L1][1+i]) {
+            if (dpb->refs[L0][1+i] != dpb->refs[L1][1+i]) {
                 equal = false;
                 break;
             }
         }
         if (equal && dpb->effective_ref_idx_l1_active > 1) {
-            Picture *tmp = dpb->lists[L1][1+0];
-            dpb->lists[L1][1+0] = dpb->lists[L1][1+1];
-            dpb->lists[L1][1+1] = tmp;
+            Picture *tmp = dpb->refs[L1][1+0];
+            dpb->refs[L1][1+0] = dpb->refs[L1][1+1];
+            dpb->refs[L1][1+1] = tmp;
         }
     }
 
-    pad_list_with_empty(dpb, dpb->lists[L0]);
-    pad_list_with_empty(dpb, dpb->lists[L1]);
+    pad_list_with_empty(dpb, dpb->refs[L0]);
+    pad_list_with_empty(dpb, dpb->refs[L1]);
 }
 
 // puts a short-term ref picture at position refIdxLX (advancing 0..num_ref_idx_active-1)
@@ -603,7 +603,7 @@ static void ref_pic_list_modif_st(Slice *slice, bool is_l0, int *refIdxLX, int m
     int picNumLXPred = rplm_occured
         ? prevPicNumLXPred
         : ctx->curr_pic->pic_num;
-    Picture **lX = is_l0 ? dpb->lists[L0] : dpb->lists[L1];
+    Picture **lX = is_l0 ? dpb->refs[L0] : dpb->refs[L1];
 
     int picNumLXNoWrap = 0;
     if (modif_idc == 0) {
@@ -648,7 +648,7 @@ static void ref_pic_list_modif_lt(Slice *slice, bool is_l0,  int *refIdxLX, int 
 
     int picNumLXPred = ctx->curr_pic->pic_num;
     int num_ref_idx_lX_active = is_l0 ? slice->sh->num_ref_idx_l0_active_minus1+1 : slice->sh->num_ref_idx_l1_active_minus1;
-    Picture **lX = is_l0 ? dpb->lists[L0] : dpb->lists[L1];
+    Picture **lX = is_l0 ? dpb->refs[L0] : dpb->refs[L1];
 
     Picture *refpic = findRefPic(dpb, returnLTPicNum, lt_pic_num);
     for (int cIdx = num_ref_idx_lX_active; cIdx > *refIdxLX; cIdx--) {

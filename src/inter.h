@@ -52,8 +52,8 @@ static always_inline void derive_pred_weights(int refL0, int refL1, bool predFla
             ctx->wpred.offset[L0][i] = ctx->wpred.offset[L1][i] = 0;
         }
 
-        Picture *pic0 = ctx->dpb->lists[L0][1+refL0];
-        Picture *pic1 = ctx->dpb->lists[L1][1+refL1];
+        Picture *pic0 = ctx->dpb->refs[L0][1+refL0];
+        Picture *pic1 = ctx->dpb->refs[L1][1+refL1];
 
         int td = _clip3(-128, 127, pic1->poc - pic0->poc);
 

@@ -78,7 +78,7 @@ void INTER_CHROMA_FUNC(inter_pred_chroma_single,
                        Macroblock *mb, int pos4x4, MotionVector mv, int list,
                        uint8_t *scratch_buf, const Undo264Context *ctx) {
     Picture *currPic = mb->p_pic;
-    Picture *refPic  = ctx->dpb->lists[list][1+mv.ref_idx];
+    Picture *refPic  = ctx->dpb->refs[list][1+mv.ref_idx];
     bool weighted = ctx->wpred.is_active;
 
     const int yBase = mb->mb_y*8 + ((pos4x4>>2) << 1);
@@ -112,8 +112,8 @@ void INTER_CHROMA_FUNC(inter_pred_chroma_bi,
                        uint8_t *scratch_buf, uint8_t *temp_bi_buf, const Undo264Context *ctx) {
 
     Picture *currPic = mb->p_pic;
-    Picture *ref0  = ctx->dpb->lists[L0][1+mvL0.ref_idx];
-    Picture *ref1  = ctx->dpb->lists[L1][1+mvL1.ref_idx];
+    Picture *ref0  = ctx->dpb->refs[L0][1+mvL0.ref_idx];
+    Picture *ref1  = ctx->dpb->refs[L1][1+mvL1.ref_idx];
     bool weighted = ctx->wpred.is_active;
 
     const int yBase = mb->mb_y*8 + ((pos4x4>>2) << 1);

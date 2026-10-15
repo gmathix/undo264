@@ -27,7 +27,7 @@ typedef struct DPB {
     size_t pictures_dumped;
 
     Picture **slots;
-    Picture *lists[2][1+MAX_NUM_REF_PICTURES+1]; // L0 and L1 ref lists
+    Picture *refs[2][1+MAX_NUM_REF_PICTURES+1]; // L0 and L1 ref lists
     int effective_ref_idx_l0_active;
     int effective_ref_idx_l1_active;
 
@@ -61,8 +61,8 @@ static DPB *make_dpb(const Undo264Context *ctx) {
 
     dpb->curr_pic_dpb_id = 1;
     for (int i = 0; i < dpb->lists_size; i++) {
-        dpb->lists[L0][i] = &EMPTY_PICTURE;
-        dpb->lists[L1][i] = &EMPTY_PICTURE;
+        dpb->refs[L0][i] = &EMPTY_PICTURE;
+        dpb->refs[L1][i] = &EMPTY_PICTURE;
     }
 
     /* start at 0 for first picture */

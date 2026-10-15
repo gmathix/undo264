@@ -63,7 +63,7 @@ void INTER_FUNC(inter_pred_single,
                 uint8_t *restrict scratch_buf, int16_t *restrict qpel_pass_buf, const Undo264Context *ctx) {
 
     Picture *currPic = mb->p_pic;
-    Picture *refPic = ctx->dpb->lists[list][1+mv.ref_idx];
+    Picture *refPic = ctx->dpb->refs[list][1+mv.ref_idx];
     bool weighted = ctx->wpred.is_active;
 
     int yBase = mb->mb_y*16 + ((pos4x4>>2) << 2);
@@ -99,8 +99,8 @@ void INTER_FUNC(inter_pred_bi,
                 const Undo264Context *ctx) {
 
     Picture *currPic = mb->p_pic;
-    Picture *picL0 = ctx->dpb->lists[L0][1+mvL0.ref_idx];
-    Picture *picL1 = ctx->dpb->lists[L1][1+mvL1.ref_idx];
+    Picture *picL0 = ctx->dpb->refs[L0][1+mvL0.ref_idx];
+    Picture *picL1 = ctx->dpb->refs[L1][1+mvL1.ref_idx];
     bool weighted = ctx->wpred.is_active;
 
     int yBase = mb->mb_y*16 + ((pos4x4>>2) << 2);

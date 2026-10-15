@@ -102,7 +102,7 @@ static void derive_p_skip_mv(Macroblock *mb, const Undo264Context *ctx) {
         ctx->curr_pic->motion_val[mb->mbAddr][L0][i][0] = mv.x;
         ctx->curr_pic->motion_val[mb->mbAddr][L0][i][1] = mv.y;
         ctx->curr_pic->ref_idx[mb->mbAddr][L0][i] = mv.ref_idx;
-        ctx->curr_pic->ref_pics[mb->mbAddr][L0][i] = ctx->dpb->lists[L0][1+mv.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][L0][i] = ctx->dpb->refs[L0][1+mv.ref_idx];
     }
     memset(&ctx->curr_pic->pred_flags[mb->mbAddr][L0][0], true, 4 * sizeof(bool));
     memset(&ctx->curr_pic->pred_flags[mb->mbAddr][L1][0], false, 4 * sizeof(bool));
@@ -116,7 +116,7 @@ static void derive_16x16_mv(Macroblock *mb, int list, const Undo264Context *ctx)
         ctx->curr_pic->motion_val[mb->mbAddr][list][i][0] = mv.x;
         ctx->curr_pic->motion_val[mb->mbAddr][list][i][1] = mv.y;
         ctx->curr_pic->ref_idx[mb->mbAddr][list][i] = mv.ref_idx;
-        ctx->curr_pic->ref_pics[mb->mbAddr][list][i] = ctx->dpb->lists[list][1+mv.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][list][i] = ctx->dpb->refs[list][1+mv.ref_idx];
     }
     memset(&ctx->curr_pic->pred_flags[mb->mbAddr][list][0], true, 4 * sizeof(bool));
 }
@@ -143,7 +143,7 @@ static void derive_16x8_part_mv(Macroblock *mb, int partIdx, int list, const Und
             ctx->curr_pic->motion_val[mb->mbAddr][list][i][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][i][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][i] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][i] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][i] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][0] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][1] = true;
@@ -161,7 +161,7 @@ static void derive_16x8_part_mv(Macroblock *mb, int partIdx, int list, const Und
             ctx->curr_pic->motion_val[mb->mbAddr][list][i][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][i][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][i] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][i] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][i] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][2] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][3] = true;
@@ -199,7 +199,7 @@ static void derive_8x16_part_mv(Macroblock *mb, int partIdx, int list, const Und
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][0] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][2] = true;
@@ -218,7 +218,7 @@ static void derive_8x16_part_mv(Macroblock *mb, int partIdx, int list, const Und
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
         ctx->curr_pic->pred_flags[mb->mbAddr][list][1] = true;
         ctx->curr_pic->pred_flags[mb->mbAddr][list][3] = true;
@@ -239,7 +239,7 @@ static always_inline void derive_sub_8x8_mv(Macroblock *mb, int partIdx, int lis
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
     }
 }
@@ -256,7 +256,7 @@ static always_inline void derive_sub_8x4_mv(Macroblock *mb, int partIdx, int lis
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
     }
 }
@@ -273,7 +273,7 @@ static always_inline void derive_sub_4x8_mv(Macroblock *mb, int partIdx, int lis
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][0] = mv.x;
             ctx->curr_pic->motion_val[mb->mbAddr][list][pos][1] = mv.y;
             ctx->curr_pic->ref_idx[mb->mbAddr][list][pos] = mv.ref_idx;
-            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->lists[list][1+mv.ref_idx];
+            ctx->curr_pic->ref_pics[mb->mbAddr][list][pos] = ctx->dpb->refs[list][1+mv.ref_idx];
         }
     }
 }
@@ -289,7 +289,7 @@ static always_inline void derive_sub_4x4_mv(Macroblock *mb, int partIdx, int lis
         ctx->curr_pic->motion_val[mb->mbAddr][list][sub_part_idx][0] = mv.x;
         ctx->curr_pic->motion_val[mb->mbAddr][list][sub_part_idx][1] = mv.y;
         ctx->curr_pic->ref_idx[mb->mbAddr][list][sub_part_idx] = mv.ref_idx;
-        ctx->curr_pic->ref_pics[mb->mbAddr][list][sub_part_idx] = ctx->dpb->lists[list][1+mv.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][list][sub_part_idx] = ctx->dpb->refs[list][1+mv.ref_idx];
     }
 }
 
@@ -302,7 +302,7 @@ static always_inline void derive_sub_4x4_mv(Macroblock *mb, int partIdx, int lis
  */
 static always_inline MotionVector get_colocated_mv(Macroblock *mb, int partIdx, int subPartIdx, int *list, Picture **ref, const Undo264Context *ctx) {
     Picture *currPic = ctx->curr_pic;
-    Picture *refPic  = ctx->dpb->lists[L1][1+0];
+    Picture *refPic  = ctx->dpb->refs[L1][1+0];
 
     int luma4x4Idx = ctx->curr_pic->sh->sps->direct_8x8_inference_flag
         ? 5 * partIdx
@@ -395,7 +395,7 @@ static always_inline void derive_spatial_direct_mv(Macroblock *mb, int partIdx, 
         mvL0 = (MotionVector) {0, 0, 0};
         mvL1 = (MotionVector) {0, 0, 0};
 
-        bool colZero = (ctx->dpb->lists[L1][1+0]->dpb_status == SHORT_TERM_REF) &&
+        bool colZero = (ctx->dpb->refs[L1][1+0]->dpb_status == SHORT_TERM_REF) &&
                        (mvCol.ref_idx == 0) &&
                        (mvCol.x >= -1 && mvCol.x <= 1) &&
                        (mvCol.y >= -1 && mvCol.y <= 1);
@@ -427,8 +427,8 @@ static always_inline void derive_spatial_direct_mv(Macroblock *mb, int partIdx, 
         ctx->curr_pic->motion_val[mb->mbAddr][L1][pos][1] = mvL1.y;
         ctx->curr_pic->ref_idx[mb->mbAddr][L0][pos] = mvL0.ref_idx;
         ctx->curr_pic->ref_idx[mb->mbAddr][L1][pos] = mvL1.ref_idx;
-        ctx->curr_pic->ref_pics[mb->mbAddr][L0][pos] = ctx->dpb->lists[L0][1+mvL0.ref_idx];
-        ctx->curr_pic->ref_pics[mb->mbAddr][L1][pos] = ctx->dpb->lists[L1][1+mvL1.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][L0][pos] = ctx->dpb->refs[L0][1+mvL0.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][L1][pos] = ctx->dpb->refs[L1][1+mvL1.ref_idx];
     }
 
 }
@@ -448,8 +448,8 @@ static always_inline void derive_temporal_direct_mv(Macroblock *mb, int partIdx,
         int8_t refIdxL0 = mvCol.ref_idx < 0 ? 0 : ref->lowest_list_index[list];
         int8_t refIdxL1 = 0;
 
-        Picture *pic0 = ctx->dpb->lists[L0][1+refIdxL0];
-        Picture *pic1 = ctx->dpb->lists[L1][1+refIdxL1];
+        Picture *pic0 = ctx->dpb->refs[L0][1+refIdxL0];
+        Picture *pic1 = ctx->dpb->refs[L1][1+refIdxL1];
 
         if (pic0->dpb_status == LONG_TERM_REF || (pic1->poc - pic0->poc == 0)) {
             mvL0 = (MotionVector) {refIdxL0, mvCol.x, mvCol.y};
@@ -474,8 +474,8 @@ static always_inline void derive_temporal_direct_mv(Macroblock *mb, int partIdx,
         ctx->curr_pic->motion_val[mb->mbAddr][L1][pos][1] = mvL1.y;
         ctx->curr_pic->ref_idx[mb->mbAddr][L0][pos] = mvL0.ref_idx;
         ctx->curr_pic->ref_idx[mb->mbAddr][L1][pos] = mvL1.ref_idx;
-        ctx->curr_pic->ref_pics[mb->mbAddr][L0][pos] = ctx->dpb->lists[L0][1+mvL0.ref_idx];
-        ctx->curr_pic->ref_pics[mb->mbAddr][L1][pos] = ctx->dpb->lists[L1][1+mvL1.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][L0][pos] = ctx->dpb->refs[L0][1+mvL0.ref_idx];
+        ctx->curr_pic->ref_pics[mb->mbAddr][L1][pos] = ctx->dpb->refs[L1][1+mvL1.ref_idx];
     }
 
     currPic->pred_flags[mb->mbAddr][L0][partIdx] = 1;
