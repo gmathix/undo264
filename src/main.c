@@ -5,11 +5,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include "decoder.h"
-
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #ifdef UNIX
 #include <unistd.h>
@@ -112,12 +111,13 @@ int main(int argc, char *argv[]) {
     long long total_frames_us = get_total_frame_microseconds(undo264ctx->prf);
 
     size_t total_frames = undo264ctx->prf->total_frames;
-
-    printf("Done, decoded %lu frames, avg : %.3fms per frame (%.3ffps)\n",
-        undo264ctx->prf->total_frames,
-        (double)total_frames_us / (double)total_frames / 1000,
-        (double)((double)total_frames / ((double)total_frames_us/1000000))
-    );
+    if (total_frames > 0) {
+        printf("Done, decoded %lu frames, avg : %.3fms per frame (%.3ffps)\n",
+            undo264ctx->prf->total_frames,
+            (double)total_frames_us / (double)total_frames / 1000,
+            (double)((double)total_frames / ((double)total_frames_us/1000000))
+        );
+    }
 
 
     decoder_free(undo264ctx);
