@@ -168,7 +168,7 @@ void decoder_init(Undo264Context *ctx) {
 
     ctx->current_slice = slice_alloc();
 
-    ctx->dpb = make_dbp(ctx);
+    ctx->dpb = make_dpb(ctx);
 
     ctx->prf = malloc(sizeof(Profiler));
     profiler_init(ctx->prf);
@@ -230,6 +230,13 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
             decode_sps(ctx); ctx->global_bit_offset += bitreader_bits_consumed(ctx->br);
             int num_mbs = ctx->ps->sps->pic_height_in_map_units * ctx->ps->sps->pic_width_in_mbs;
             if (!ctx->pic_pool_initialized || num_mbs != ctx->num_mbs) {
+                if (ctx->dpb->initialized) {
+                    dpb_flush(ctx->dpb);
+                    dpb_free(ctx->dpb);
+                    ctx->dpb = make_dpb(ctx);
+                }
+                dpb_init(ctx->dpb, ctx->ps->sps);
+
                 pic_pool_init(ctx->pool, ctx);
                 ctx->pic_pool_initialized = true;
             }

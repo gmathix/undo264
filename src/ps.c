@@ -39,12 +39,16 @@ int decode_sps(Undo264Context *ctx) {
 
     int profile_idc = read_u(br, 8);
 
+    sps->constraint_set0_flag = read_u(br, 1);
+    sps->constraint_set1_flag = read_u(br, 1);
+    sps->constraint_set2_flag = read_u(br, 1);
+    sps->constraint_set3_flag = read_u(br, 1);
+    sps->constraint_set4_flag = read_u(br, 1);
+    sps->constraint_set5_flag = read_u(br, 1);
 
-    /// TODO: use 6 next bits for constraints
-    bitreader_skip_bits(br, 6);
     bitreader_skip_bits(br, 2); // reserved zero bits
 
-    int level_idc = read_u(br, 8);
+    sps->level_idc = read_u(br, 8);
 
 
     uint32_t sps_id = read_ue(br);
@@ -154,12 +158,12 @@ int decode_sps(Undo264Context *ctx) {
     }
 
 
-
+    
 
     sps->max_num_ref_frames = read_ue(br);
     sps->gaps_in_frame_num_allowed_flag = read_u(br, 1);
-
-
+    
+    
     sps->pic_width_in_mbs_minus1 = read_ue(br);
     sps->pic_height_in_map_units_minus1 = read_ue(br);
     sps->frame_mbs_only_flag = read_u(br, 1);
@@ -213,7 +217,7 @@ int decode_sps(Undo264Context *ctx) {
     /* unused for now */
     int vui_params_present = read_u(br, 1);
     if (vui_params_present) {
-        decode_vui(ctx);
+        decode_vui(sps, ctx);
     }
 
 
@@ -343,7 +347,7 @@ int decode_pps(Undo264Context *ctx) {
 
 
 /* E.1.1 */
-int decode_vui (Undo264Context *ctx) {
+int decode_vui (SPS *sps, Undo264Context *ctx) {
     BitReader *br = ctx->br;
 
     /* not used for now, just necessary parsing for bitreader alignement with the reference decoder */
@@ -413,7 +417,7 @@ int decode_vui (Undo264Context *ctx) {
         uint32_t log2_max_mb_length_horizontal = read_ue(br);
         uint32_t log2_max_mv_length_vertical = read_ue(br);
         uint32_t max_num_reorder_frames = read_ue(br);
-        uint32_t max_dec_frame_buffering = read_ue(br);
+        sps->max_dec_frame_buffering = read_ue(br);
     }
 }
 

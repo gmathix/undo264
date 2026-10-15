@@ -97,7 +97,7 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
     SPS *sps = ctx->ps->sps;
     int num_mbs = sps->pic_width_in_mbs * sps->pic_height_in_map_units;
 
-    pool->size = 2 * MAX_DPB_SIZE;
+    pool->size = ctx->dpb->slots_size + 2;
     pool->nb_available = pool->size;
 
     if (!ctx->mb_metadata_initialized || num_mbs != ctx->num_mbs) {
@@ -107,8 +107,13 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
         decoder_alloc_metadata(ctx);
     }
 
+    pool->slots = malloc(pool->size * sizeof(Picture*));
+    if (!pool->slots) { perror("malloc"); exit(1); }
+
+    pool->available = calloc(pool->size, sizeof(bool));
+    if (!pool->available) { perror("calllc"); exit(1); }
+
     for (int i = 0; i < pool->size; i++) {
-        if (pool->slots[i]) picture_free(pool->slots[i]);
         pool->slots[i] = picture_alloc(sps, ctx);
         if (sps->chroma_format_idc == 0) {
             Picture *pic = pool->slots[i];
@@ -125,6 +130,8 @@ void pic_pool_free(PicturePool *pool, const Undo264Context *ctx) {
     for (int i = 0; i < pool->size; i++) {
         if (pool->slots[i]) picture_free(pool->slots[i]);
     }
+    free(pool->slots);
+    free(pool->available);
     free(pool);
 }
 

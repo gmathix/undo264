@@ -60,8 +60,8 @@ static int sortToRefList(DPB *dpb, bool descending, int list, int *idx,
     int best = descending ? INT32_MIN : INT32_MAX;
     int prevBest = descending ? INT32_MAX : INT32_MIN;
 
-    for (int i = 0; i < MAX_DPB_SIZE; i++) {
-        for (int j = 0; j < MAX_DPB_SIZE; j++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
+        for (int j = 0; j < dpb->slots_size; j++) {
             Picture *pic = dpb->slots[j];
             if (pic == NULL) continue;
             int field = (fieldGetter)(pic);
@@ -95,7 +95,7 @@ static int sortToRefList(DPB *dpb, bool descending, int list, int *idx,
 }
 
 static Picture *findRefPic(DPB *dpb, PictureField fieldGetter, int fieldValue) {
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         Picture *pic = dpb->slots[i];
         if (pic == NULL) continue;
         if ((fieldGetter)(pic) == fieldValue && pic->dpb_status != UNUSED_REF) {
@@ -202,7 +202,7 @@ void derive_poc(DPB *dpb, Picture *pic) {
 }
 
 static void decode_pic_nums(DPB *dpb, int frame_num) {
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         Picture *pic = dpb->slots[i];
         if (pic != NULL) {
             if (pic->dpb_status == SHORT_TERM_REF) {
@@ -223,14 +223,14 @@ static void decode_pic_nums(DPB *dpb, int frame_num) {
 /** ==================== INTERNAL PICTURE SLOTS MANAGEMENT ==================== **/
 
 static void dpb_empty_ref_lists(DPB *dpb) {
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         Picture *pic = dpb->slots[i];
         if (pic) {
             pic->in_list[L0] = pic->in_list[L1] = false;
             pic->lowest_list_index[L0] = pic->lowest_list_index[L1] = -1;
         }
     }
-    for (int i = 0; i < dpb->size + 2; i++) {
+    for (int i = 0; i < dpb->lists_size; i++) {
         dpb->lists[L0][i] = NULL;
         dpb->lists[L1][i] = NULL;
     }
@@ -277,7 +277,7 @@ static void output_and_free_pic(int idx, DPB *dpb) {
 static int find_oldest_pic(int min_poc_exclude, DPB *dpb) {
     int min_poc = INT32_MAX;
     int min_idx = -1;
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         Picture *pic = dpb->slots[i];
         if (pic != NULL && pic->poc < min_poc && pic->poc > min_poc_exclude) {
             min_poc = pic->poc;
@@ -295,37 +295,32 @@ static int output_and_free_oldest_pic(DPB *dpb) {
 }
 
 static int bump(DPB *dpb) {
-    for (int i = 0; i < dpb->size; i++) {
-        if (dpb->slots[i] == NULL) {
-            return i;
-        }
-    }
-    int idx;
-    int min_poc_exclude = INT32_MIN;
-    /* loop until we find the oldest picture that is unused for reference.
-     * when we find an old picture that hasn't been output and is still a reference frame, we output it
-     * and leave it in the dpb, and we keep searching until a slot gets freed. */
-    do {
-        idx = find_oldest_pic(min_poc_exclude, dpb);
-        if (idx != -1) {
-            Picture *pic = dpb->slots[idx];
-            min_poc_exclude = pic->poc;
-            if (!pic->is_output) {
-                output_pic(idx, dpb);
-            }
-            if (pic->dpb_status == UNUSED_REF) {
-                remove_unused_pic(idx, dpb);
+    for (;;) {
+        for (int i = 0; i < dpb->slots_size; i++) {
+            if (dpb->slots[i] && dpb->slots[i]->is_output && dpb->slots[i]->dpb_status == UNUSED_REF) {
+                remove_unused_pic(i, dpb);
             }
         }
-    } while (dpb->fullness == dpb->size);
+        for (int i = 0; i < dpb->slots_size; i++) {
+            if (!dpb->slots[i]) return i;
+        }
 
-    return idx;
+        int idx = -1, min = INT32_MAX;
+        for (int i = 0; i < dpb->slots_size; i++) {
+            Picture *pic = dpb->slots[i];
+            if (pic && !pic->is_output && pic->poc < min) {
+                min = pic->poc;
+                idx = i;
+            }
+        }
+        output_pic(idx, dpb);
+    }
 }
 
 static int sliding_window_marking(SliceHeader *sh, DPB *dpb) {
     int numShortTerm = 0;
     int numLongTerm = 0;
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         if (dpb->slots[i] != NULL && dpb->slots[i]->dpb_status == SHORT_TERM_REF) {
             numShortTerm++;
         } else if (dpb->slots[i] != NULL && dpb->slots[i]->dpb_status == LONG_TERM_REF) {
@@ -335,7 +330,7 @@ static int sliding_window_marking(SliceHeader *sh, DPB *dpb) {
     if (numShortTerm + numLongTerm == _max(sh->sps->max_num_ref_frames, 1)) {
         int minFrameNumWrap = INT32_MAX;
         int minIdx = 0;
-        for (int i = 0; i < dpb->size; i++) {
+        for (int i = 0; i < dpb->slots_size; i++) {
             Picture *pic = dpb->slots[i];
             if (pic != NULL && pic->dpb_status == SHORT_TERM_REF && pic->frame_num_wrap < minFrameNumWrap) {
                 minFrameNumWrap = pic->frame_num_wrap;
@@ -349,7 +344,7 @@ static int sliding_window_marking(SliceHeader *sh, DPB *dpb) {
 }
 
 static void pad_list_with_empty(DPB *dpb, Picture **list) {
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->lists_size; i++) {
         if (list[i] == NULL) {
             list[i] = &EMPTY_PICTURE;
         }
@@ -381,7 +376,7 @@ static void mark_lt_pic_unused(DPB *dpb, int ltPicNum) {
 static void assign_lt_idx_to_st_pic(DPB *dpb, int picNum, int lt_frame_idx) {
     Picture *pic = findRefPic(dpb, returnPicNum, picNum);
     if (pic) {
-        for (int i = 0; i < dpb->size; i++) {
+        for (int i = 0; i < dpb->slots_size; i++) {
             Picture *pic = dpb->slots[i];
             if (pic && pic->dpb_status == LONG_TERM_REF && pic->long_term_frame_idx == lt_frame_idx) {
                 pic->dpb_status = UNUSED_REF;
@@ -396,7 +391,7 @@ static void assign_lt_idx_to_st_pic(DPB *dpb, int picNum, int lt_frame_idx) {
 }
 static void decode_max_lt_frame_idx(DPB *dpb, int max_lt_frame_idx) {
     dpb->ctx->maxLongTermFrameIdx = max_lt_frame_idx;
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         Picture *pic = dpb->slots[i];
         if (pic != NULL && pic->dpb_status == LONG_TERM_REF && pic->long_term_frame_idx > max_lt_frame_idx) {
             pic->dpb_status = UNUSED_REF;
@@ -405,14 +400,14 @@ static void decode_max_lt_frame_idx(DPB *dpb, int max_lt_frame_idx) {
 }
 static void mark_all_unused(DPB *dpb) {
     dpb->ctx->maxLongTermFrameIdx = 0;
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         if (dpb->slots[i] != NULL) {
             dpb->slots[i]->dpb_status = UNUSED_REF;
         }
     }
 }
 static void mark_curr_pic_lt(DPB *dpb, int lt_frame_idx) {
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         Picture *pic = dpb->slots[i];
         if (pic && pic->dpb_status == LONG_TERM_REF && pic->long_term_frame_idx == lt_frame_idx) {
             pic->dpb_status = UNUSED_REF;
@@ -459,10 +454,10 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
                 mark_all_unused(ctx->dpb);
                 ctx->dpb->mmco_5_prev_occured = true;
                 pic->frame_num = 0;
-                for (int i = 0; i < ctx->dpb->size; i++) {
+                for (int i = 0; i < ctx->dpb->slots_size; i++) {
                     output_and_free_oldest_pic(ctx->dpb);
                 }
-                for (int i = 0; i < ctx->dpb->size; i++) {
+                for (int i = 0; i < ctx->dpb->slots_size; i++) {
                     if (ctx->dpb->slots[i] && ctx->dpb->slots[i]->non_existing) {
                         output_and_free_pic(i, ctx->dpb);
                     }
@@ -580,7 +575,7 @@ void init_ref_pic_lists(DPB *dpb, SliceHeader *sh) {
 
         /* check if l0 == l1 */
         bool equal = true;
-        for (int i = 0; i < dpb->size; i++) {
+        for (int i = 0; i < MAX_NUM_REF_PICTURES; i++) {
             if (dpb->lists[L0][1+i] != dpb->lists[L1][1+i]) {
                 equal = false;
                 break;
@@ -770,7 +765,7 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
             nonExistingPic->frame_num_wrap = curr_frame_num;
             nonExistingPic->non_existing   = true;
             nonExistingPic->dpb_status     = SHORT_TERM_REF;
-            nonExistingPic->is_output      = false;
+            nonExistingPic->is_output      = true;
             nonExistingPic->nal_ref_idc    = currPic->nal_ref_idc;
             nonExistingPic->long_term_frame_idx = -1;
 
@@ -835,20 +830,75 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
 
 
 
+/** ==================== MISC UTILS ==================== **/
+
+/** table A-1 in Annex A (page 292) */
+static int get_dpb_size_in_pictures(SPS *sps) {
+    int size_mbs = sps->pic_width_in_mbs * sps->pic_height_in_map_units;
+
+    int size = 0; // max dpb size in macroblocks
+    if ((sps->profile_idc == PROFILE_BASELINE || sps->profile_idc == PROFILE_MAIN || sps->profile_idc == PROFILE_HIGH) &&
+        sps->constraint_set3_flag == 1 && sps->level_idc == 11) {
+        size = 396;
+    } else {
+        switch (sps->level_idc) {
+            case  9: size =    396; break;
+            case 10: size =    396; break;
+            case 11: size =    900; break;
+            case 12: size =   2376; break;
+            case 13: size =   2376; break;
+            case 20: size =   2376; break;
+            case 21: size =   4752; break;
+            case 22: size =   8100; break;
+            case 30: size =   8100; break;
+            case 31: size =  18000; break;
+            case 32: size =  20480; break;
+            case 40: size =  32768; break;
+            case 41: size =  32768; break;
+            case 42: size =  34816; break;
+            case 50: size = 110400; break;
+            case 51: size = 184320; break;
+            case 52: size = 184320; break;
+            default: {
+                fprintf(stderr, "invalid level_idc: %d\n", sps->level_idc);
+                exit(1);
+            }
+        }
+    }
+
+    size = _min(16, size /= size_mbs); // get size in pictures
+    size = _max(size, sps->max_dec_frame_buffering);
+
+    return size;
+}
+
+
+
+
 /** ==================== PRIMARY PUBLIC API ==================== **/
 
+void dpb_init(DPB *dpb, SPS *sps) {
+    dpb->slots_size = get_dpb_size_in_pictures(sps) + 1;
+
+    dpb->slots = calloc(dpb->slots_size, sizeof(Picture*));
+    if (!dpb->slots) { perror("calloc"); exit(1); }
+
+    dpb->initialized = true;
+}
+
 void dpb_flush(DPB *dpb) {
-	for (int i = 0; i < dpb->size; i++) {
+	for (int i = 0; i < dpb->slots_size; i++) {
 		output_and_free_oldest_pic(dpb);
 	}
 }
 
 void dpb_free(DPB *dpb) {
-    for (int i = 0; i < dpb->size; i++) {
+    for (int i = 0; i < dpb->slots_size; i++) {
         if (dpb->slots[i] != NULL) {
             pic_pool_getback(dpb->slots[i], dpb->ctx->pool);
         }
     }
+    free(dpb->slots);
     free(dpb);
 }
 
@@ -858,10 +908,10 @@ void store_picture(DPB *dpb, Picture *pic) {
 
     dpb->mmco_5_prev_occured = false;
     if (pic->sh->idr_pic_flag) {
-        for (int i = 0; i < dpb->size; i++) {
+        for (int i = 0; i < dpb->slots_size; i++) {
             output_and_free_oldest_pic(dpb);
         }
-        for (int i = 0; i < dpb->size; i++) {
+        for (int i = 0; i < dpb->slots_size; i++) {
             if (dpb->slots[i] && dpb->slots[i]->non_existing) {
                 output_and_free_pic(i, dpb);
             }
@@ -894,12 +944,12 @@ void store_picture(DPB *dpb, Picture *pic) {
 
     pic->dpb_pic_id = dpb->curr_pic_dpb_id;
     while (1) {
-        dpb->curr_pic_dpb_id = (dpb->curr_pic_dpb_id + 1) % (MAX_DPB_SIZE+2); // 0 reserved for EMPTY_PICTURE
+        dpb->curr_pic_dpb_id = (dpb->curr_pic_dpb_id + 1) % (dpb->slots_size+2); // 0 reserved for EMPTY_PICTURE
         if (dpb->curr_pic_dpb_id == 0) dpb->curr_pic_dpb_id = 1;
 
         // check that no other picture has this id (could happen with long-term ref frames)
         int match = 0;
-        for (int i = 0; i < dpb->size; i++) {
+        for (int i = 0; i < dpb->slots_size; i++) {
             if (dpb->slots[i] && dpb->slots[i]->dpb_pic_id == pic->dpb_pic_id && dpb->slots[i] != pic) {
                 pic->dpb_pic_id = dpb->curr_pic_dpb_id;
                 match = 1;

@@ -34,8 +34,7 @@
 
 
 
-#define MAX_NUM_REF_PICTURES        32
-#define MAX_DPB_SIZE     33
+#define MAX_NUM_REF_PICTURES    16  // it's 32 for fields but I won't implement them so
 #define L0  0
 #define L1  1
 

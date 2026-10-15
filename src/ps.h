@@ -50,9 +50,19 @@ typedef struct SPS {
     int      frame_cropping_flag;
     int      frame_mbs_only_flag;
     int      gaps_in_frame_num_allowed_flag;
+    int      level_idc;
+    int      max_dec_frame_buffering;
     int      mb_aff_flag;
     int      profile_idc; // 66=baseline, 77=main, 100=high
     int      separate_color_plane_flag;
+
+    int constraint_set0_flag;
+    int constraint_set1_flag;
+    int constraint_set2_flag;
+    int constraint_set3_flag;
+    int constraint_set4_flag;
+    int constraint_set5_flag;
+
 
 
     // DERIVED
@@ -115,7 +125,7 @@ typedef struct ParamSets {
 int  get_profile (ParamSets *ps);
 int  decode_sps  (Undo264Context *ctx);
 int  decode_pps  (Undo264Context *ctx);
-int  decode_vui (Undo264Context *ctx);
+int  decode_vui (SPS *sps, Undo264Context *ctx);
 
 void ps_uninit   (ParamSets *ps);
 

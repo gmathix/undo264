@@ -63,20 +63,16 @@ typedef struct Picture {
 	int widthCropY, heightCropY;
 	int widthCropC, heightCropC;
 
-
-
-
-
-
 } Picture ;
+
 
 extern Picture EMPTY_PICTURE;
 
 
 
 typedef struct PicturePool {
-	Picture *slots[2 * MAX_DPB_SIZE ];
-	bool     available[2 * MAX_DPB_SIZE ];
+	Picture **slots;
+	bool     *available;
 	int      nb_available;
 	int      size;
 } PicturePool ;

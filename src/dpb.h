@@ -19,12 +19,15 @@ enum DpbStatus {
 };
 
 typedef struct DPB {
-    int size;
+    bool initialized;
+
+    int slots_size;
+    int lists_size;
     int fullness;
     size_t pictures_dumped;
 
-    Picture *slots[MAX_DPB_SIZE];
-    Picture *lists[2][1+MAX_DPB_SIZE+1];
+    Picture **slots;
+    Picture *lists[2][1+MAX_NUM_REF_PICTURES+1]; // L0 and L1 ref lists
     int effective_ref_idx_l0_active;
     int effective_ref_idx_l1_active;
 
@@ -45,18 +48,19 @@ typedef struct DPB {
 
 
 
-static DPB *make_dbp(const Undo264Context *ctx) {
+static DPB *make_dpb(const Undo264Context *ctx) {
     DPB *dpb = calloc(1, sizeof(DPB));
 
 
     dpb->ctx = ctx;
-    dpb->size = MAX_DPB_SIZE; // FIXME use max size specified by level
+    dpb->slots_size = -1;
+    dpb->lists_size = 1+MAX_NUM_REF_PICTURES+1;
     dpb->fullness = 0;
 
     dpb->maxPocLsb = -1;
 
     dpb->curr_pic_dpb_id = 1;
-    for (int i = 0; i < dpb->size+2; i++) {
+    for (int i = 0; i < dpb->lists_size; i++) {
         dpb->lists[L0][i] = &EMPTY_PICTURE;
         dpb->lists[L1][i] = &EMPTY_PICTURE;
     }
@@ -77,6 +81,7 @@ void init_ref_pic_lists(DPB *dpb, struct SliceHeader *sh);
 void ref_pic_list_modification(uint8_t type, struct Slice *slice, int maxFrameNum, int *maxLtIdx, const Undo264Context *ctx);
 void dec_ref_pic_marking(DPB *dpb, struct Slice *slice, BitReader *br);
 
+void dpb_init(DPB *dpb, SPS *sps);
 void dpb_flush(DPB *dpb);
 void dpb_free(DPB *dpb);
 
