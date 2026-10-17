@@ -14,12 +14,12 @@
 #define HOR_PRED               1
 #define DC_PRED                2
 #define PLANE_PRED             3
-#define DIAG_DOWN_LEFT_PRED    3
-#define DIAG_DOWN_RIGHT_PRED   4
-#define VERT_RIGHT_PRED        5
-#define HOR_DOWN_PRED          6
-#define VERT_LEFT_PRED         7
-#define HOR_UP_PRED            8
+#define DIAG_DOWN_LEFT_PRED    4
+#define DIAG_DOWN_RIGHT_PRED   5
+#define VERT_RIGHT_PRED        6
+#define HOR_DOWN_PRED          7
+#define VERT_LEFT_PRED         8
+#define HOR_UP_PRED            9
 
 #define DC_PRED8x8             0
 #define HOR_PRED8x8            1
