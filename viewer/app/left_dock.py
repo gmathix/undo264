@@ -8,6 +8,7 @@ from PySide6.QtGui import QColor, QBrush
 from PySide6.QtCore import Qt, Signal
 
 from model import Frame, NO_REF
+from . import theme
 
 
 def add_frame_header_nodes(parent, frame: Frame) -> QTreeWidgetItem:
@@ -53,21 +54,35 @@ class LeftDockPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+
+        def section(text: str) -> QLabel:
+            lbl = QLabel(text.upper())
+            lbl.setProperty("role", "section")
+            return lbl
 
         # 1. Stream Context Header Tree
-        layout.addWidget(QLabel("Stream Context"))
+        layout.addWidget(section("Stream context"))
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Property", "Value"])
         self.tree.setColumnWidth(0, 150)
+        self.tree.setAlternatingRowColors(True)
         layout.addWidget(self.tree, stretch=2)
 
         # 2. DPB Status Table
-        layout.addWidget(QLabel("DPB Status (Green = Active Reference)"))
+        layout.addSpacing(4)
+        layout.addWidget(section("DPB status"))
+        self.lbl_legend = QLabel()
+        self.lbl_legend.setProperty("role", "dim")
+        layout.addWidget(self.lbl_legend)
         self.dpb_table = QTableWidget(3, 17)
         self.dpb_table.setVerticalHeaderLabels(["Slots", "L0", "L1"])
         self.dpb_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.dpb_table.horizontalHeader().setMinimumSectionSize(8)
         self.dpb_table.horizontalHeader().hide()
+        self.dpb_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.dpb_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.dpb_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.dpb_table.setEditTriggers(QTableWidget.NoEditTriggers)
         # Our own colouring owns the look: Qt's selection/focus painting would fight it
@@ -83,6 +98,7 @@ class LeftDockPanel(QWidget):
         self.current_active_refs = frozenset()
 
         self._last_dbl = 0.0
+        self._update_legend()
         self.dpb_table.cellClicked.connect(self._on_dpb_clicked)
         self.dpb_table.cellDoubleClicked.connect(self._on_dpb_double_clicked)
 
@@ -118,6 +134,18 @@ class LeftDockPanel(QWidget):
 
         self.referenceSelected.emit(self._clicked_ref)
         self._apply_dpb_colors()
+
+    def refresh_theme(self):
+        self._update_legend()
+        self._apply_dpb_colors()
+
+    def _update_legend(self):
+        t = theme.current()
+        chip = lambda color, label: f'<span style="color:{color}">&#9632;</span>&nbsp;{label}'  # noqa: E731
+        self.lbl_legend.setText("&nbsp;&nbsp;".join([
+            chip(t.dpb_l0, "L0 block"), chip(t.dpb_l1, "L1 block"), chip(t.dpb_slot, "slot"),
+            chip(t.dpb_clicked_bg, "selected"), f'<span style="color:{t.dpb_active_fg}">12</span>&nbsp;active ref',
+        ]))
 
     def highlight_partition_refs(self, l0_ref: int, l1_ref: int):
         """Called by the main app when the viewport selection changes."""
@@ -188,6 +216,7 @@ class LeftDockPanel(QWidget):
             self.dpb_table.setItem(row, col, item)
 
     def _apply_dpb_colors(self):
+        t = theme.current()
         for row in range(3):
             for col in range(17):
                 item = self.dpb_table.item(row, col)
@@ -197,33 +226,32 @@ class LeftDockPanel(QWidget):
                 txt = item.text()
                 val = int(txt) if txt else NO_REF
 
-                bg_color = QColor(80, 80, 80)
-                fg_color = QColor(255, 255, 255)
+                bg_color = QColor(t.dpb_cell)
+                fg_color = QColor(t.text)
                 font = item.font()
                 font.setBold(False)
 
                 if val == NO_REF:
-                    bg_color = QColor(30, 30, 30)
+                    bg_color = QColor(t.dpb_empty)
                 else:
                     if val in self.current_active_refs:
-                        fg_color = QColor(50, 255, 50)
+                        fg_color = QColor(t.dpb_active_fg)
                         font.setBold(True)
 
                     # Prioritize highlighting the clicked reference
                     if val == self._clicked_ref:
-                        bg_color = QColor(200, 200, 0)
-                        fg_color = QColor(0, 0, 0)
+                        bg_color = QColor(t.dpb_clicked_bg)
+                        fg_color = QColor(t.dpb_clicked_fg)
                     else:
                         is_l0 = (row == 1 and val == self.hl_l0)
                         is_l1 = (row == 2 and val == self.hl_l1)
                         is_slot = (row == 0 and (val == self.hl_l0 or val == self.hl_l1))
 
-                        if is_l0:
-                            bg_color = QColor(150, 50, 50)
-                        elif is_l1:
-                            bg_color = QColor(50, 100, 200)
-                        elif is_slot:
-                            bg_color = QColor(150, 150, 50)
+                        bg = t.dpb_l0 if is_l0 else t.dpb_l1 if is_l1 else t.dpb_slot if is_slot else None
+                        if bg:
+                            bg_color = QColor(bg)
+                            if val not in self.current_active_refs:  # keep the green of active references
+                                fg_color = QColor("#ffffff")
 
                 item.setBackground(QBrush(bg_color))
                 item.setForeground(QBrush(fg_color))

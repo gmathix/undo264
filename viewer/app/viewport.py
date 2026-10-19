@@ -22,6 +22,7 @@ from PySide6.QtGui import QColor, QPainter, QPixmap, QPen, QPainterPath
 from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsScene, QGraphicsView
 
 from model import MbType
+from . import theme
 from .overlay_data import ArrowSet, build_arrows, slice_boundaries
 from .overlays import GridItem, HoverItem, LocalMVItem, MVItem, SelectionItem, SliceItem, RefHighlightItem
 from .partitions import Partition, inter_partitions
@@ -44,7 +45,7 @@ class VideoView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
         self.setRenderHint(QPainter.Antialiasing, True)
-        self.setBackgroundBrush(QColor(28, 28, 30))
+        self.setBackgroundBrush(QColor(theme.current().viewport))
         self.viewport().setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -81,6 +82,7 @@ class VideoView(QGraphicsView):
         self._peek_rect_l1 = QRectF()
         self._peek_active_list = -1  # -1 = None, 0 = L0, 1 = L1
         self._peek_box: QGraphicsRectItem | None = None
+        self._shift_pressed: bool = False
 
 
         self._pan_last = None
@@ -163,7 +165,15 @@ class VideoView(QGraphicsView):
         self._normal_pixmap = pixmap
         if self._peek_active_list == -1:
             self.pixmap_item.setPixmap(pixmap)
-        if not self._fitted and self.pic_w:
+        if not self._fitted and self.pic_w and self.isVisible():
+            self.fit_to_window()
+            self._fitted = True
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        # The picture may have arrived while the view was hidden (viewport dock closed, picker on top):
+        # fit it as soon as the view has a real size.
+        if not self._fitted and self.pic_w and self._normal_pixmap is not None and not self._normal_pixmap.isNull():
             self.fit_to_window()
             self._fitted = True
 
@@ -579,34 +589,42 @@ class VideoView(QGraphicsView):
         super().leaveEvent(e)
 
     def keyPressEvent(self, e):
-        is_shift = e.key() == Qt.Key_Shift
-        is_alt = e.key() == Qt.Key_Alt
 
-        if (is_shift or is_alt) and not e.isAutoRepeat():
-            list_to_peek = -1
+        if e.key() == Qt.Key_Shift and not e.isAutoRepeat():
+            self._shift_pressed = True
 
-            if is_shift:
-                # Shift maps to L0, OR to L1 if it's the only one available (uni-prediction)
-                if self._peek_pixmap_l0:
-                    list_to_peek = 0
-                elif self._peek_pixmap_l1:
-                    list_to_peek = 1
-            elif is_alt:
-                # Ctrl strictly maps to L1
-                if self._peek_pixmap_l1:
-                    list_to_peek = 1
+        is_left = e.key() == Qt.Key_Left
+        is_right = e.key() == Qt.Key_Right
 
-            if list_to_peek != -1 and self._peek_active_list == -1:
-                self._peek_active_list = list_to_peek
-                pixmap = self._peek_pixmap_l0 if list_to_peek == 0 else self._peek_pixmap_l1
-                rect = self._peek_rect_l0 if list_to_peek == 0 else self._peek_rect_l1
+        # Shift + Left/Right belongs to the peek, always: auto-repeat events must be swallowed too,
+        # otherwise they reach QGraphicsView, which scrolls the picture with the arrow keys.
+        if (is_left or is_right) and (self._shift_pressed or e.modifiers() & Qt.ShiftModifier):
+            self._shift_pressed = True
+            if not e.isAutoRepeat():
+                list_to_peek = -1
 
-                self.pixmap_item.setPixmap(pixmap)
-                self._peek_box.setRect(rect)
-                self._peek_box.setVisible(True)
+                if is_left:
+                    # left arrow maps to L0, OR to L1 if it's the only one available (uni-prediction)
+                    if self._peek_pixmap_l0:
+                        list_to_peek = 0
+                    elif self._peek_pixmap_l1:
+                        list_to_peek = 1
+                elif is_right:
+                    # Right arrow strictly maps to L1
+                    if self._peek_pixmap_l1:
+                        list_to_peek = 1
 
-                if self._select: self._select.setVisible(False)
-                if self._local: self._local.setVisible(False)
+                if list_to_peek != -1 and self._peek_active_list == -1:
+                    self._peek_active_list = list_to_peek
+                    pixmap = self._peek_pixmap_l0 if list_to_peek == 0 else self._peek_pixmap_l1
+                    rect = self._peek_rect_l0 if list_to_peek == 0 else self._peek_rect_l1
+
+                    self.pixmap_item.setPixmap(pixmap)
+                    self._peek_box.setRect(rect)
+                    self._peek_box.setVisible(True)
+
+                    if self._select: self._select.setVisible(False)
+                    if self._local: self._local.setVisible(False)
             e.accept()
             return
 
@@ -617,20 +635,34 @@ class VideoView(QGraphicsView):
         super().keyPressEvent(e)
 
     def keyReleaseEvent(self, e):
+        is_left = e.key() == Qt.Key_Left
+        is_right = e.key() == Qt.Key_Right
         is_shift = e.key() == Qt.Key_Shift
-        is_alt = e.key() == Qt.Key_Alt
 
-        if (is_shift or is_alt) and not e.isAutoRepeat():
-            # Determine which list this key was driving
-            list_released = 0 if is_shift else 1
-            if is_shift and not self._peek_pixmap_l0 and self._peek_pixmap_l1:
-                list_released = 1
+        if is_shift and not e.isAutoRepeat():
+            self._stop_peek()
+            self._shift_pressed = False
+            e.accept()
+            return
 
-            if self._peek_active_list == list_released:
-                self._stop_peek()
+        if (is_left or is_right) and self._shift_pressed:
+            if not e.isAutoRepeat():
+                # Determine which list this key was driving
+                list_released = 0 if is_left else 1
+                if is_left and not self._peek_pixmap_l0 and self._peek_pixmap_l1:
+                    list_released = 1
+
+                if self._peek_active_list == list_released:
+                    self._stop_peek()
             e.accept()
             return
         super().keyReleaseEvent(e)
+
+    def focusOutEvent(self, e):
+        self._shift_pressed = False
+        if self._peek_active_list != -1:
+            self._stop_peek()
+        super().focusOutEvent(e)
 
     def _stop_peek(self):
         self._peek_active_list = -1

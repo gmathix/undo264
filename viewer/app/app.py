@@ -4,69 +4,23 @@ from collections import deque
 
 import numpy as np
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QDialog, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QGraphicsView, QGraphicsScene,
-    QDockWidget, QSlider, QToolBar, QLineEdit
+    QApplication, QMainWindow, QLabel, QDockWidget, QSlider, QStackedWidget, QToolBar, QWidget,
 )
-from PySide6.QtCore import Qt, QTimer, QRectF
-from PySide6.QtGui import QImage, QPixmap, QAction
+from PySide6.QtCore import Qt, QTimer, QRectF, QSettings
+from PySide6.QtGui import QActionGroup, QColor, QImage, QPixmap
 
 from model import MbType, PredDir
 from parsing.loader_qt import QtFrameStore, QtIndexer
 from parsing.references import ReferenceResolver
 
+from . import theme
 from .frame_dialog import FrameInfoDialog
+from .launch_page import LaunchPage
 from .left_dock import LeftDockPanel
 from .partitions import partitions, Partition
 from .right_dock import RightDockPanel
 from .viewport import VideoView
 from .yuv import yuv420_to_rgb
-
-
-class LaunchDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("undo264 Viewer - Launch")
-        self.json_path = ""
-        self.yuv_path = ""
-
-        layout = QVBoxLayout(self)
-
-        self.btn_json = QPushButton("Select Info Dump (.json)")
-        self.btn_json.clicked.connect(self._pick_json)
-        self.lbl_json = QLabel("No JSON selected")
-
-        self.btn_yuv = QPushButton("Select Raw Video (.yuv)")
-        self.btn_yuv.clicked.connect(self._pick_yuv)
-        self.lbl_yuv = QLabel("No YUV selected")
-
-        self.btn_launch = QPushButton("Launch Viewer")
-        self.btn_launch.setEnabled(False)
-        self.btn_launch.clicked.connect(self.accept)
-
-        layout.addWidget(self.btn_json)
-        layout.addWidget(self.lbl_json)
-        layout.addWidget(self.btn_yuv)
-        layout.addWidget(self.lbl_yuv)
-        layout.addWidget(self.btn_launch)
-
-    def _pick_json(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Info Dump", "", "JSON Files (*.json)")
-        if path:
-            self.json_path = path
-            self.lbl_json.setText(os.path.basename(path))
-            self._check_ready()
-
-    def _pick_yuv(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Raw Video", "", "YUV Files (*.yuv)")
-        if path:
-            self.yuv_path = path
-            self.lbl_yuv.setText(os.path.basename(path))
-            self._check_ready()
-
-    def _check_ready(self):
-        if self.json_path and self.yuv_path:
-            self.btn_launch.setEnabled(True)
 
 
 class ViewerWindow(QMainWindow):
@@ -75,7 +29,9 @@ class ViewerWindow(QMainWindow):
     PREFETCH_BEHIND = 4
     CACHE_FRAMES = 64    # parsed Frames kept in RAM (~2 MB each at 1080p)
 
-    def __init__(self, json_path: str, yuv_path: str, workers: int | None = None):
+    LEFT_DOCK_WIDTH = 320
+
+    def __init__(self, json_path: str = "", yuv_path: str = "", workers: int | None = None):
         super().__init__()
         self.setWindowTitle("undo264 Info Viewer")
         self.resize(1280, 720)
@@ -83,6 +39,8 @@ class ViewerWindow(QMainWindow):
         self.json_path = json_path
         self.yuv_path = yuv_path
         self.workers = workers  # None -> min(4, cpu_count - 1)
+        self.indexer: QtIndexer | None = None
+        self._settings = QSettings("undo264", "viewer")
 
         # Set once the index is built (see _on_index_ready)
         self.index = None
@@ -108,29 +66,51 @@ class ViewerWindow(QMainWindow):
         self._render_ms: deque[float] = deque(maxlen=30)
 
         self._setup_ui()
-        self._start_indexing()
+        if json_path and yuv_path:  # both known up front: skip the picker once the window is up
+            QTimer.singleShot(0, lambda: self.open_files(json_path, yuv_path))
+        else:
+            self.launch.set_paths(json_path, yuv_path)
 
     # ------------------------------------------------------------------ setup
     def _setup_ui(self):
-        # 1. Central Viewport
+        # 1. Viewport: the file picker is shown first, then replaced by the video view
         self.view = VideoView(self)
         self.view.mbHovered.connect(self._on_mb_hovered)
         self.view.mbSelected.connect(self._on_mb_selected)
-        self.setCentralWidget(self.view)
+
+        self.launch = LaunchPage(self)
+        self.launch.launchRequested.connect(self.open_files)
+
+        self.stack = QStackedWidget()
+        self.stack.addWidget(self.launch)
+        self.stack.addWidget(self.view)
+
+        # All three panels are docks. The (empty) central widget stays hidden so the docks use the whole window.
+        self.setDockNestingEnabled(True)
+        central = QWidget()
+        central.hide()
+        self.setCentralWidget(central)
+
+        self.dock_view = QDockWidget("Viewport", self)
+        self.dock_view.setObjectName("dock_viewport")
+        self.dock_view.setWidget(self.stack)
 
         # 2. Docks
-        self.dock_left = QDockWidget("", self)
+        self.dock_left = QDockWidget("Stream Info", self)
+        self.dock_left.setObjectName("dock_left")
         self.left_panel = LeftDockPanel(self.dock_left)
         self.dock_left.setWidget(self.left_panel)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.dock_left)
 
         self.dock_right = QDockWidget("Macroblock Inspector", self)
+        self.dock_right.setObjectName("dock_right")
         self.right_panel = RightDockPanel(self.dock_right)
         self.dock_right.setWidget(self.right_panel)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.dock_right)
+
+        self._reset_layout()
 
         # 3. Bottom Toolbar & Transport Controls
         toolbar = QToolBar("Transport", self)
+        toolbar.setObjectName("Transport")
         self.addToolBar(Qt.BottomToolBarArea, toolbar)
 
         self.btn_play = toolbar.addAction("Play")
@@ -147,7 +127,7 @@ class ViewerWindow(QMainWindow):
         self.slider.setEnabled(False)
         toolbar.addWidget(self.slider)
 
-        self.lbl_frame = QLabel(" Indexing... ")
+        self.lbl_frame = QLabel(" No video loaded ")
         toolbar.addWidget(self.lbl_frame)
 
         self.lbl_stats = QLabel("")
@@ -182,9 +162,71 @@ class ViewerWindow(QMainWindow):
         self.stats_timer.start()
 
         self._setup_overlay_toolbar()
+        self._setup_menus()
+        self._apply_theme(self._settings.value("theme", theme.DEFAULT_THEME))
+
+    # ------------------------------------------------------- menus / layout / theme
+    def _setup_menus(self):
+        bar = self.menuBar()
+
+        m_file = bar.addMenu("&File")
+        act_quit = m_file.addAction("&Quit")
+        act_quit.setShortcut("Ctrl+Q")
+        act_quit.triggered.connect(self.close)
+
+        m_win = bar.addMenu("&Window")
+        for dock, key in ((self.dock_left, "Ctrl+1"), (self.dock_view, "Ctrl+2"), (self.dock_right, "Ctrl+3")):
+            act = dock.toggleViewAction()  # checkable, follows the dock's visibility (close button included)
+            act.setShortcut(key)
+            m_win.addAction(act)
+        m_win.addSeparator()
+        m_win.addAction("&Reset Layout").triggered.connect(self._reset_layout)
+        m_win.addSeparator()
+
+        m_theme = m_win.addMenu("&Theme")
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for name in theme.THEMES:
+            act = m_theme.addAction(name)
+            act.setCheckable(True)
+            act.setChecked(name == theme.current().name)
+            act.triggered.connect(lambda _=False, n=name: self._apply_theme(n))
+            group.addAction(act)
+        self._theme_actions = group
+
+    def _reset_layout(self):
+        """(Re)build the default dock arrangement: [Stream Info | Viewport | Inspector]; reopens closed docks."""
+        docks = (self.dock_left, self.dock_view, self.dock_right)
+        for d in docks:
+            d.setFloating(False)
+            self.removeDockWidget(d)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.dock_left)
+        self.splitDockWidget(self.dock_left, self.dock_view, Qt.Horizontal)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dock_right)
+        for d in docks:
+            d.show()
+        QTimer.singleShot(0, self._apply_dock_sizes)  # needs the layout to exist
+
+    def _apply_dock_sizes(self):
+        right = RightDockPanel.WIDTH
+        left = self.LEFT_DOCK_WIDTH
+        self.resizeDocks([self.dock_left, self.dock_view, self.dock_right],
+                         [left, max(200, self.width() - left - right), right], Qt.Horizontal)
+
+    def _apply_theme(self, name: str):
+        t = theme.apply(QApplication.instance(), name)
+        self.view.setBackgroundBrush(QColor(t.viewport))
+        self.left_panel.refresh_theme()
+        self.right_panel.refresh_theme()
+        self._settings.setValue("theme", t.name)
+        for act in self._theme_actions.actions():
+            act.setChecked(act.text() == t.name)
 
     def _setup_overlay_toolbar(self):
         tb = QToolBar("Overlays", self)
+        tb.setObjectName("Overlays")
+        self.tb_overlays = tb
+        tb.setEnabled(False)  # nothing to overlay until a stream is loaded
         self.addToolBar(Qt.TopToolBarArea, tb)
 
         act = tb.addAction("Fit")
@@ -257,6 +299,17 @@ class ViewerWindow(QMainWindow):
         self.left_panel.highlight_partition_refs(l0_ref, l1_ref)
 
     # --------------------------------------------------------------- indexing
+    def open_files(self, json_path: str, yuv_path: str):
+        """Called by the picker (or the command line): index the dump, then swap the picker for the video."""
+        if self.indexer is not None and self.indexer.isRunning():
+            return
+        self.json_path, self.yuv_path = json_path, yuv_path
+        self.launch.set_paths(json_path, yuv_path)
+        self.launch.set_busy(True, f"Indexing {os.path.basename(json_path)}…")
+        self.lbl_frame.setText(" Indexing... ")
+        self.stack.setCurrentWidget(self.launch)
+        self._start_indexing()
+
     def _start_indexing(self):
         self.indexer = QtIndexer(self.json_path, self)
         self.indexer.ready.connect(self._on_index_ready)
@@ -264,8 +317,11 @@ class ViewerWindow(QMainWindow):
         self.indexer.start()
 
     def _on_index_failed(self, msg: str):
-        self.lbl_frame.setText(" Index error ")
+        self.lbl_frame.setText(" No video loaded ")
         self.statusBar().showMessage(msg)
+        self.yuv = None
+        self.launch.show_error(msg)  # back to the picker, with the reason, so the user can pick other files
+        self.stack.setCurrentWidget(self.launch)
 
     def _on_index_ready(self, index):
         self.index = index
@@ -288,7 +344,11 @@ class ViewerWindow(QMainWindow):
         self.frame_bytes = w * h * 3 // 2
         self.view.set_geometry(w, h, sps.pic_width_in_mbs, sps.pic_height_in_mbs, left, top)
 
-        self.yuv = np.memmap(self.yuv_path, dtype=np.uint8, mode="r")
+        try:
+            self.yuv = np.memmap(self.yuv_path, dtype=np.uint8, mode="r")
+        except (OSError, ValueError) as e:  # missing, unreadable or empty file
+            self._on_index_failed(f"cannot open the video: {e}")
+            return
         yuv_frames = len(self.yuv) // self.frame_bytes
         self.total_frames = min(index.num_frames, yuv_frames)
         if self.total_frames == 0:
@@ -307,6 +367,9 @@ class ViewerWindow(QMainWindow):
         self.store.frame_failed.connect(self._on_frame_failed)
         self.store.warm()  # start the worker processes now, not on the first seek
 
+        self.tb_overlays.setEnabled(True)
+        self.launch.set_busy(False)
+        self.stack.setCurrentWidget(self.view)  # the picker gives way to the frames
         self._seek(0)
 
     def _get_peek_pixmap(self, out_idx: int) -> QPixmap | None:
@@ -531,7 +594,7 @@ class ViewerWindow(QMainWindow):
     def closeEvent(self, event):
         self._pause()
         self.stats_timer.stop()
-        if self.indexer.isRunning():
+        if self.indexer is not None and self.indexer.isRunning():
             self.indexer.wait()
         if self.store is not None:
             self.store.close()
