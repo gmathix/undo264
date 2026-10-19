@@ -17,6 +17,7 @@
 typedef struct CLIOptions {
     bool dump_monochrome;
     bool dump_frames; // set to false when benchmarking
+    bool dump_info;
     bool deblock;
 
     // those are only effective if undo264 is compiled with USE_NATIVE_ARCH set to ON, on an x86_64 architecture
@@ -31,7 +32,10 @@ typedef struct Undo264Context {
     /* input/output */
     char *in_path;
     char *out_path;
+    char *info_out_path;
     FILE *out_file;
+    FILE *info_out_file;
+
 
     // input file
 #ifdef WIN32
@@ -159,9 +163,13 @@ static Undo264Context *undo264_context_make(void) {
     }
 
     ctx->out_path = "output.yuv";
+    ctx->info_out_path = "h264_info.json";
 
     ctx->cli_options = calloc(1, sizeof(CLIOptions));
+
     ctx->cli_options->dump_monochrome = false;
+    ctx->cli_options->dump_info       = false;
+
     ctx->cli_options->deblock         = true;
     ctx->cli_options->dump_frames     = true;
     ctx->cli_options->use_simd        = true;

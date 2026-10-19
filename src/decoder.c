@@ -4,6 +4,8 @@
 
 
 
+#include "util/dump_info.h"
+
 #include "decoder.h"
 
 #include "annexb.h"
@@ -14,6 +16,7 @@
 #include "dsp_init.h"
 #include "tests/profiler.h"
 #include "util/bitreader.h"
+
 
 
 #include "cavlc.h"
@@ -57,8 +60,6 @@ int nb_frames_before_stop = -1;
 
 
 void decoder_init(Undo264Context *ctx) {
-
-
     /* opening input and output files */
 
     FILE *test_input = fopen(ctx->in_path, "rb");
@@ -69,85 +70,92 @@ void decoder_init(Undo264Context *ctx) {
     fclose(test_input);
 
 
-    #ifdef UNIX
-        int fd = open(ctx->in_path, O_RDONLY);
-        if (fd < 0) {
-            perror("open");
-            exit(1);
-        }
-        struct stat st;
-        fstat(fd, &st);
-        if (st.st_size == 0) {
-            fprintf(stderr, "Opening input file : file is empty\n");
-            close(fd);
-            exit(1);
-        }
-        ctx->data_size = st.st_size;
-
-        ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        close(fd);
-        if (ctx->data == MAP_FAILED) {
-            perror("mmap");
-            exit(1);
-        }
-        madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
-    #endif
-
-    #ifdef WIN32
-        TCHAR *lpFileName = TEXT(ctx->in_path);
-        HANDLE hFile;
-        HANDLE hMap;
-        LPVOID lpBasePtr;
-        LARGE_INTEGER liFileSize;
-
-        hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-        if (hFile == INVALID_HANDLE_VALUE) {
-            fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
-            exit(1);
-        }
-        if (!GetFileSizeEx(hFile, &liFileSize)) {
-            fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
-            CloseHandle(hFile);
-            exit(1);
-        }
-        if (liFileSize.QuadPart == 0) {
-            fprintf(stderr, "Opening input file : file is empty\n");
-            CloseHandle(hFile);
-            exit(1);
-        }
-
-        hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
-        if (hMap == 0) {
-            fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
-            CloseHandle(hFile);
-            exit(1);
-        }
-
-        lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
-        if (lpBasePtr == NULL) {
-            fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
-            CloseHandle(hFile);
-            CloseHandle(hMap);
-            exit(1);
-        }
-        ctx->data = lpBasePtr;
-        ctx->data_size = (size_t)liFileSize.QuadPart;
-        ctx->lpBasePtr = lpBasePtr;
-        ctx->hMap = hMap;
-        ctx->hFile = hFile;
-    #endif
-
-
-
-
-    ctx->out_file = fopen(ctx->out_path, "wb");
-    if (!ctx->out_file) {
-        perror("fopen");
-        exit(121);
+#ifdef UNIX
+    int fd = open(ctx->in_path, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        exit(1);
     }
-    setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
+    struct stat st;
+    fstat(fd, &st);
+    if (st.st_size == 0) {
+        fprintf(stderr, "Opening input file : file is empty\n");
+        close(fd);
+        exit(1);
+    }
+    ctx->data_size = st.st_size;
+
+    ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (ctx->data == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+#endif
+
+#ifdef WIN32
+    TCHAR *lpFileName = TEXT(ctx->in_path);
+    HANDLE hFile;
+    HANDLE hMap;
+    LPVOID lpBasePtr;
+    LARGE_INTEGER liFileSize;
+
+    hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
+        exit(1);
+    }
+    if (!GetFileSizeEx(hFile, &liFileSize)) {
+        fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
+        CloseHandle(hFile);
+        exit(1);
+    }
+    if (liFileSize.QuadPart == 0) {
+        fprintf(stderr, "Opening input file : file is empty\n");
+        CloseHandle(hFile);
+        exit(1);
+    }
+
+    hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+    if (hMap == 0) {
+        fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
+        CloseHandle(hFile);
+        exit(1);
+    }
+
+    lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
+    if (lpBasePtr == NULL) {
+        fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
+        CloseHandle(hFile);
+        CloseHandle(hMap);
+        exit(1);
+    }
+    ctx->data = lpBasePtr;
+    ctx->data_size = (size_t)liFileSize.QuadPart;
+    ctx->lpBasePtr = lpBasePtr;
+    ctx->hMap = hMap;
+    ctx->hFile = hFile;
+#endif
 
 
+
+    if (ctx->cli_options->dump_frames) {
+        ctx->out_file = fopen(ctx->out_path, "wb");
+        if (!ctx->out_file) {
+            perror("fopen");
+            exit(121);
+        }
+        setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
+    }
+
+    if (ctx->cli_options->dump_info) {
+        ctx->info_out_file = fopen(ctx->info_out_path, "wb");
+        if (!ctx->info_out_file) {
+            perror("fopen");
+            exit(121);
+        }
+    }
 
 
     /* structs initialization */
@@ -240,8 +248,22 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
                 pic_pool_init(ctx->pool, ctx);
                 ctx->pic_pool_initialized = true;
             }
+
+            if (ctx->cli_options->dump_info) {
+                write_sps_json(ctx->ps->sps, ctx);
+            }
+
             break;
-        case NAL_PPS: decode_pps(ctx); ctx->global_bit_offset += bitreader_bits_consumed(ctx->br); break;
+        case NAL_PPS: {
+            decode_pps(ctx);
+            ctx->global_bit_offset += bitreader_bits_consumed(ctx->br);
+
+            if (ctx->cli_options->dump_info) {
+                write_pps_json(ctx->ps->pps, ctx);
+            }
+
+            break;
+        }
 
 
         case NAL_CODED_SLICE_OF_NON_IDR_PICTURE:
@@ -254,7 +276,15 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
             profiler_start_frame(ctx->prf);
 
+
+
             SliceHeader *sh = read_slice_header(nal_unit, ctx);
+
+            if (ctx->cli_options->dump_info) {
+                write_dpb_status_json(ctx->dpb, ctx->curr_pic->json_payload);
+                write_slice_header_json(sh, ctx->curr_pic->json_payload);
+            }
+
 
             if (sh->pps->cabac_flag) {
                 decode_slice_cabac(sh, nal_unit, ctx);
@@ -266,6 +296,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
             if (ctx->cli_options->deblock && sh->disable_deblocking_filter_idc != 1) {
                 deblock_slice(ctx->curr_pic, sh, ctx);
             }
+
 
             #ifdef SLICES_LOG
                 printf("done slice %lu %s(frame_num %d, pic %lu)\n\n",
@@ -315,6 +346,10 @@ void decoder_run(Undo264Context *ctx) {
     if (!ctx->initialized) return;
 
     BitReader nal_br = make_br(ctx->data, ctx->data_size);
+
+    if (ctx->cli_options->dump_info) {
+        write_info_header_json(ctx);
+    }
 
     https://www.youtube.com/watch?v=RrESvSRNpeo
     {
@@ -395,7 +430,10 @@ void decoder_free(Undo264Context *ctx) {
 
     dpb_free(ctx->dpb);
 
-    fclose(ctx->out_file);
+    if (ctx->cli_options->dump_frames)
+        fclose(ctx->out_file);
+
+    free(ctx->cli_options);
 
     free(ctx);
 }

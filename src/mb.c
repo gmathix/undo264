@@ -18,6 +18,7 @@
 #include "util/predutil.h"
 #include "util/logger.h"
 
+
 /* table 7-11 */
 const I_MbInfo i_mb_type_info[26] = {
     /*  0 */ {MB_TYPE_INTRA4x4,   -1,        -1, -1, },

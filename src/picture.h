@@ -24,6 +24,8 @@ typedef struct Picture {
 	int8_t (*ref_idx)   [2][16];
 	struct Picture *(*ref_pics)[2][16];
 
+	struct PictureJSONPayload *json_payload;
+
 
     int nal_ref_idc;
 
@@ -33,6 +35,8 @@ typedef struct Picture {
     int  frame_num_wrap;
     int  frame_num;
     int  pic_num;
+	size_t dec_idx;
+	size_t output_idx;
     int  poc;
     int  dpb_pic_id; // 0..MAX_DPB_SIZE
     bool in_list[2];
@@ -83,7 +87,7 @@ typedef struct PicturePool {
 
 Picture *picture_alloc(SPS *sps, const Undo264Context *ctx);
 void     picture_free(Picture *p);
-void     picture_reset(Picture *p);
+void     picture_reset(Picture *p, Undo264Context *ctx);
 void     dump_picture(Picture *p, const Undo264Context *ctx);
 
 void pic_pool_init(PicturePool *pool, const Undo264Context *ctx);

@@ -109,10 +109,10 @@
 
 
 static char* mb_type_to_string(int type) {
-    if (IS_INTRA4x4   (type))  return "Intra_4x4";
-    if (IS_INTRA16x16 (type))  return "Intra_16x16";
+    if (IS_INTRA4x4   (type))  return "I4x4";
+    if (IS_INTRA16x16 (type))  return "I16x16";
     if (IS_PCM        (type))  return "PCM";
-    if (IS_INTRA_PCM  (type))  return "Intra_PCM";
+    if (IS_INTRA_PCM  (type))  return "IPCM";
     if (IS_SKIP       (type))  return "Skip";
     if (IS_INTERLACED (type))  return "Interlaced";
     if (IS_GMC        (type))  return "GMC";

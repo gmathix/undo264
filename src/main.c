@@ -23,8 +23,9 @@ static void print_usage(void) {
         "Usage: undo264 -i <input> [OPTIONS]\n\n"
         "Options:\n"
         "   -h, --help            print this message and exit\n"
-        "   -i, --input           input file to decode\n"
-        "   -o, --output          output YUV file to write to (output.yuv by default)\n"
+        "   -i, --input <file>    input file to decode\n"
+        "   -o, --output <file>   output YUV file to write to (output.yuv by default)\n"
+        "   --dump-info <file>    dump stream info to <file>\n"
         "   --monochrome          dump in grayscale format\n"
         "   --no-simd             disable all SIMD functions\n"
         "   --no-sse              disable SSE SIMD functions\n"
@@ -71,6 +72,10 @@ static int parse_options(int argc, char *argv[], Undo264Context *ctx) {
             ctx->cli_options->dump_frames = false;
         } else if (!strcmp(arg, "--no-deblock")) {
             ctx->cli_options->deblock = false;
+        } else if (!strcmp(arg, "--dump-info")) {
+            if (++i >= argc) { CLI_ERR("--dump-info needs a value\n") }
+            ctx->info_out_path = argv[i];
+            ctx->cli_options->dump_info = true;
         } else {
             fprintf(stderr, "unrecognized option : %s\n", arg);
             print_usage();

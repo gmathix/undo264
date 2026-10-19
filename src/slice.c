@@ -8,6 +8,7 @@
 #include "cavlc.h"
 #include "cabac.h"
 #include "util/predutil.h"
+#include "util/dump_info.h"
 #include "tests/profiler.h"
 
 #undef CAFUNC
@@ -1171,6 +1172,11 @@ void CAFUNC(decode_slice,
                         decode_b_macroblock(mb, ctx->current_slice, ctx);
                     }
 
+                    if (ctx->cli_options->dump_info) {
+                        write_macroblock_json(mb, ctx->curr_pic, ctx, ctx->curr_pic->json_payload);
+                    }
+
+
                     ctx->prevQPY = mb->QPY;
                     ctx->current_slice->num_mbs++;
 
@@ -1209,6 +1215,12 @@ void CAFUNC(decode_slice,
                     decode_b_macroblock(mb, ctx->current_slice, ctx);
                 }
             }
+
+            if (ctx->cli_options->dump_info) {
+                write_macroblock_json(mb, ctx->curr_pic, ctx, ctx->curr_pic->json_payload);
+            }
+
+
 
 
             ctx->current_slice->num_mbs++;

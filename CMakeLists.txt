@@ -98,6 +98,7 @@ set(UNDO264_SOURCES
         src/loopfilter.c
         src/cabac.c
         src/util/logger.c
+        src/util/dump_info.c
         src/tests/profiler.c
         src/dsp_init.c
         src/dsp_init.h
@@ -188,7 +189,7 @@ endfunction()
 
 # ---- Main target -------------------------------------------------------------
 add_executable(undo264 ${UNDO264_SOURCES})
-target_link_libraries(undo264 PRIVATE ${UNDO264_LIBM} undo264_warnings undo264_sanitizers undo264_link)
+target_link_libraries(undo264 PRIVATE ${UNDO264_LIBM} cjson undo264_warnings undo264_sanitizers undo264_link)
 target_include_directories(undo264 PRIVATE src)
 target_compile_definitions(undo264 PRIVATE
         $<$<CONFIG:Debug,DebugASAN>:SLICES_LOG=1>

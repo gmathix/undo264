@@ -7,11 +7,14 @@
 
 
 #include "global.h"
+
 #include "mb.h"
 #include "ps.h"
 #include "util/expgolomb.h"
 #include "util/sliceutil.h"
 #include "dpb.h"
+#include "tests/profiler.h"
+
 
 
 typedef struct SliceHeader {
@@ -245,11 +248,13 @@ static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
 
     if (sh->first_mb == 0) {
         ctx->curr_pic = pic_pool_get(ctx->pool);
-        picture_reset(ctx->curr_pic);
+        picture_reset(ctx->curr_pic, ctx);
+
         ctx->curr_pic->sh = sh;
         ctx->curr_pic->nal_ref_idc = nal_unit->ref_idc;
         ctx->curr_pic->pic_num = sh->frame_num;
         ctx->curr_pic->frame_num = sh->frame_num;
+        ctx->curr_pic->dec_idx = ctx->prf->total_frames;
         derive_poc(ctx->dpb, ctx->curr_pic);
         ctx->curr_pic->non_existing = false;
     } else {

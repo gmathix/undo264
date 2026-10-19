@@ -4,6 +4,7 @@
 #include "picture.h"
 
 #include "slice.h"
+#include "util/dump_info.h"
 
 
 Picture EMPTY_PICTURE = {};
@@ -33,12 +34,14 @@ Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
     p->ref_idx      = calloc(p->num_mbs, sizeof(int8_t   [2][16]));
     p->ref_pics     = calloc(p->num_mbs, sizeof(Picture* [2][16]));
 
+    p->json_payload = make_picture_json_payload();
+
     return p;
 }
 
 
 
-void picture_reset(Picture *p) {
+void picture_reset(Picture *p, Undo264Context *ctx) {
     p->frame_num = 0;
     p->frame_num_offset = 0;
     p->frame_num_wrap = 0;
@@ -54,6 +57,8 @@ void picture_reset(Picture *p) {
     p->top_field_order_cnt = 0;
     p->bottom_field_order_cnt = 0;
 
+    free_picture_json_payload(p->json_payload);
+    p->json_payload = make_picture_json_payload();
 }
 
 void picture_free(Picture *p) {
@@ -66,6 +71,8 @@ void picture_free(Picture *p) {
     free(p->motion_val);
     free(p->ref_idx);
     free(p->ref_pics);
+
+    free_picture_json_payload(p->json_payload);
 
     free(p);
 }

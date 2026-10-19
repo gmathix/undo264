@@ -21,6 +21,7 @@
 #include "slice.h"
 
 #include "tests/profiler.h"
+#include "util/dump_info.h"
 #include "util/expgolomb.h"
 #include "util/formulas.h"
 #include "util/sliceutil.h"
@@ -246,10 +247,18 @@ static void output_pic(int idx, DPB *dpb) {
         fprintf(stderr, "Picture %d : POC:%d frame_num:%d\n", picture_to_find, pic->poc, pic->frame_num);
     }
 
-    if (!pic->non_existing)
+    if (!pic->non_existing) {
         dump_picture(pic, dpb->ctx);
+        pic->output_idx = dpb->pictures_dumped;
+
+        if (dpb->ctx->cli_options->dump_info) {
+            write_frame_header_json(pic, pic->json_payload);
+            write_frame_json(dpb->ctx, pic->json_payload);
+        }
+    }
     pic->is_output = true;
     dpb->pictures_dumped++;
+
 }
 
 static void remove_unused_pic(int idx, DPB *dpb) {
