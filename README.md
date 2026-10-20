@@ -83,7 +83,7 @@ Below is a screenshot of the app in use with numbered callouts explaining how to
 in the top toolbar.
 3. **Top toolbar**: Fit frame to the viewport (F), 1:1 frame ratio (1), draw MB grid (G), draw Slice boundaries (S), 
 and the MV length slider.
-4. **Stream Info tree (left dock)**: the SPS (Sequence Parameter Set), PPS (Sequence Parameter Set), Frame Header and Slice Headers 
+4. **Stream Info tree (left dock)**: the SPS (Sequence Parameter Set), PPS (Pequence Parameter Set), Frame Header and Slice Headers 
 of the current frame
 5. **Decoder Picture Buffer (DPB) table (left dock)**: pictures are numbered using their decoded index. Click a reference
 to highlight the blocks in the current frame that use it, double-click to open its header and jump to it.
