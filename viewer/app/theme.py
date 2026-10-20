@@ -94,7 +94,7 @@ DAYLIGHT = Theme(
 )
 
 THEMES: dict[str, Theme] = {t.name: t for t in (SLATE, MIDNIGHT, DAYLIGHT)}
-DEFAULT_THEME = SLATE.name
+DEFAULT_THEME = DAYLIGHT.name
 
 _current: Theme = SLATE
 
@@ -165,6 +165,8 @@ QStatusBar {{ background: {t.window}; color: {t.text_dim}; border-top: 1px solid
 QStatusBar::item {{ border: none; }}
 QLabel {{ background: transparent; }}
 QLabel[role="dim"] {{ color: {t.text_dim}; }}
+QLabel[role="key"] {{ background: {t.panel_alt}; color: {t.text}; border: 1px solid {t.border};
+                     border-bottom: 2px solid {t.border}; border-radius: 5px; padding: 2px 8px; min-width: 14px; }}
 QLabel[role="section"] {{ color: {t.text_dim}; font-size: 11px; font-weight: 700; letter-spacing: 1px; }}
 
 QPushButton {{ background: {t.panel_alt}; color: {t.text}; border: 1px solid {t.border};

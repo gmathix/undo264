@@ -15,6 +15,7 @@ from parsing.references import ReferenceResolver
 
 from . import theme
 from .frame_dialog import FrameInfoDialog
+from .help_dialogs import APP_NAME, AboutDialog, ControlsDialog
 from .launch_page import LaunchPage
 from .left_dock import LeftDockPanel
 from .partitions import partitions, Partition
@@ -41,6 +42,7 @@ class ViewerWindow(QMainWindow):
         self.workers = workers  # None -> min(4, cpu_count - 1)
         self.indexer: QtIndexer | None = None
         self._settings = QSettings("undo264", "viewer")
+        self._controls_dialog: ControlsDialog | None = None
 
         # Set once the index is built (see _on_index_ready)
         self.index = None
@@ -193,6 +195,23 @@ class ViewerWindow(QMainWindow):
             act.triggered.connect(lambda _=False, n=name: self._apply_theme(n))
             group.addAction(act)
         self._theme_actions = group
+
+        m_help = bar.addMenu("&Help")
+        act_controls = m_help.addAction("&Controls…")
+        act_controls.setShortcut("F1")
+        act_controls.triggered.connect(self._show_controls)
+        m_help.addSeparator()
+        m_help.addAction(f"&About {APP_NAME}…").triggered.connect(self._show_about)
+
+    def _show_controls(self):
+        if self._controls_dialog is None:  # one non-modal window, kept around so it can stay open next to the viewer
+            self._controls_dialog = ControlsDialog(self)
+        self._controls_dialog.show()
+        self._controls_dialog.raise_()
+        self._controls_dialog.activateWindow()
+
+    def _show_about(self):
+        AboutDialog(self).exec()
 
     def _reset_layout(self):
         """(Re)build the default dock arrangement: [Stream Info | Viewport | Inspector]; reopens closed docks."""
