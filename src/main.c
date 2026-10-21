@@ -12,6 +12,13 @@
 
 #ifdef UNIX
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#endif
+
+#ifdef WIN32
+#include <Windows.h>
 #endif
 
 #include "tests/profiler.h"
@@ -91,6 +98,108 @@ static int parse_options(int argc, char *argv[], Undo264Context *ctx) {
 }
 
 
+static int open_files(Undo264Context *ctx) {
+    FILE *test_input = fopen(ctx->in_path, "rb");
+    if (!test_input) {
+        fprintf(stderr, "input file not found: %s\n", ctx->in_path);
+        return 1;
+    }
+    fclose(test_input);
+
+
+    /* input file, uses memory mapping which is platform-specific */
+#ifdef UNIX
+    int fd = open(ctx->in_path, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return 1;
+    }
+    struct stat st;
+    fstat(fd, &st);
+    if (st.st_size == 0) {
+        fprintf(stderr, "Opening input file : file is empty\n");
+        close(fd);
+        return 1;
+    }
+    ctx->data_size = st.st_size;
+
+    ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (ctx->data == MAP_FAILED) {
+        perror("mmap");
+        return 1;
+    }
+    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+#endif
+
+#ifdef WIN32
+    TCHAR *lpFileName = TEXT(ctx->in_path);
+    HANDLE hFile;
+    HANDLE hMap;
+    LPVOID lpBasePtr;
+    LARGE_INTEGER liFileSize;
+
+    hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE    /* opening input and output files */_NORMAL, 0);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
+        exit(1);
+    }
+    if (!GetFileSizeEx(hFile, &liFileSize)) {
+        fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
+        CloseHandle(hFile);
+        exit(1);
+    }
+    if (liFileSize.QuadPart == 0) {
+        fprintf(stderr, "Opening input file : file is empty\n");
+        CloseHandle(hFile);
+        exit(1);
+    }
+
+    hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+    if (hMap == 0) {
+        fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
+        CloseHandle(hFile);
+        exit(1);
+    }
+
+    lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
+    if (lpBasePtr == NULL) {
+        fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
+        CloseHandle(hFile);
+        CloseHandle(hMap);
+        exit(1);
+    }
+    ctx->data = lpBasePtr;
+    ctx->data_size = (size_t)liFileSize.QuadPart;
+    ctx->lpBasePtr = lpBasePtr;
+    ctx->hMap = hMap;
+    ctx->hFile = hFile;
+#endif
+
+
+    /* output .yuv file */
+    if (ctx->cli_options->dump_frames) {
+        ctx->out_file = fopen(ctx->out_path, "wb");
+        if (!ctx->out_file) {
+            perror("fopen");
+            return 1;
+        }
+        setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
+    }
+
+    /* info .json file for viewer */
+    if (ctx->cli_options->dump_info) {
+        ctx->info_out_file = fopen(ctx->info_out_path, "wb");
+        if (!ctx->info_out_file) {
+            perror("fopen");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+
 int main(int argc, char *argv[]) {
 
 
@@ -105,11 +214,18 @@ int main(int argc, char *argv[]) {
     }
 
 
+    int ret = open_files(undo264ctx);
+    if (ret != 0) return ret;
+
 
     decoder_init(undo264ctx);
 
-    decoder_run(undo264ctx);
-
+    undo_status st = decoder_run(undo264ctx);
+    if (st != UNDO_OK) {
+        fprintf(stderr, "undo264: %s\n", decoder_error_msg(undo264ctx));
+        decoder_free(undo264ctx);
+        return 1 + (int)st;
+    }
 
 
 

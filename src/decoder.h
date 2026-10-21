@@ -8,10 +8,31 @@
 
 #include "global.h"
 
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stdnoreturn.h>
 
 #ifdef WIN32
 #include <Windows.h>
 #endif
+
+
+
+typedef enum {
+    UNDO_OK = 0,
+    UNDO_ERR_BITSTREAM,   // invalid per spe
+    UNDO_ERR_UNSUPPORTED, // valid but out of scope
+    UNDO_ERR_LIMIT,       // exceeds limits defined by level_idc
+    UNDO_ERR_NOMEM,
+    UNDOD_ERR_INTERNAL,
+} undo_status ;
+
+typedef struct {
+    undo_status code;
+    char        msg[256];
+    const char *file;
+    int         line;
+} DecError ;
 
 
 typedef struct CLIOptions {
@@ -26,6 +47,8 @@ typedef struct CLIOptions {
     bool use_avx2;
 } CLIOptions ;
 
+
+
 typedef struct Undo264Context {
     bool initialized;
 
@@ -36,6 +59,11 @@ typedef struct Undo264Context {
     FILE *out_file;
     FILE *info_out_file;
 
+    /* error handling */
+    jmp_buf  err_jmp;
+    int      jmp_armed;
+    int      failed;
+    DecError err;
 
     // input file
 #ifdef WIN32
@@ -180,7 +208,8 @@ static Undo264Context *undo264_context_make(void) {
 }
 
 void decoder_init(Undo264Context *ctx);
-void decoder_run(Undo264Context *ctx);
+int  decoder_run(Undo264Context *ctx);
+const char *decoder_error_msg(const Undo264Context *ctx);
 void decoder_free_metadata(Undo264Context *ctx);
 void decoder_alloc_metadata(Undo264Context *ctx);
 void decoder_free(Undo264Context *ctx);

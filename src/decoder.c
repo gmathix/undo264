@@ -10,6 +10,7 @@
 
 #include "annexb.h"
 #include "dequant.h"
+#include "loopfilter.h"
 #include "dpb.h"
 #include "mb.h"
 #include "ps.h"
@@ -43,9 +44,6 @@
 #include "slice.c"
 #undef CABAC
 #define CABAC 0
-
-
-#include "loopfilter.h"
 #include "slice.c"
 #undef CABAC
 
@@ -60,104 +58,6 @@ int nb_frames_before_stop = -1;
 
 
 void decoder_init(Undo264Context *ctx) {
-    /* opening input and output files */
-
-    FILE *test_input = fopen(ctx->in_path, "rb");
-    if (!test_input) {
-        fprintf(stderr, "input file not found: %s\n", ctx->in_path);
-        exit(1);
-    }
-    fclose(test_input);
-
-
-#ifdef UNIX
-    int fd = open(ctx->in_path, O_RDONLY);
-    if (fd < 0) {
-        perror("open");
-        exit(1);
-    }
-    struct stat st;
-    fstat(fd, &st);
-    if (st.st_size == 0) {
-        fprintf(stderr, "Opening input file : file is empty\n");
-        close(fd);
-        exit(1);
-    }
-    ctx->data_size = st.st_size;
-
-    ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    close(fd);
-    if (ctx->data == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
-    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
-#endif
-
-#ifdef WIN32
-    TCHAR *lpFileName = TEXT(ctx->in_path);
-    HANDLE hFile;
-    HANDLE hMap;
-    LPVOID lpBasePtr;
-    LARGE_INTEGER liFileSize;
-
-    hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
-        exit(1);
-    }
-    if (!GetFileSizeEx(hFile, &liFileSize)) {
-        fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
-        CloseHandle(hFile);
-        exit(1);
-    }
-    if (liFileSize.QuadPart == 0) {
-        fprintf(stderr, "Opening input file : file is empty\n");
-        CloseHandle(hFile);
-        exit(1);
-    }
-
-    hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
-    if (hMap == 0) {
-        fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
-        CloseHandle(hFile);
-        exit(1);
-    }
-
-    lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
-    if (lpBasePtr == NULL) {
-        fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
-        CloseHandle(hFile);
-        CloseHandle(hMap);
-        exit(1);
-    }
-    ctx->data = lpBasePtr;
-    ctx->data_size = (size_t)liFileSize.QuadPart;
-    ctx->lpBasePtr = lpBasePtr;
-    ctx->hMap = hMap;
-    ctx->hFile = hFile;
-#endif
-
-
-
-    if (ctx->cli_options->dump_frames) {
-        ctx->out_file = fopen(ctx->out_path, "wb");
-        if (!ctx->out_file) {
-            perror("fopen");
-            exit(121);
-        }
-        setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
-    }
-
-    if (ctx->cli_options->dump_info) {
-        ctx->info_out_file = fopen(ctx->info_out_path, "wb");
-        if (!ctx->info_out_file) {
-            perror("fopen");
-            exit(121);
-        }
-    }
-
-
     /* structs initialization */
 
     CabacContext *cactx = make_cactx();
@@ -342,35 +242,54 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 }
 
 
-void decoder_run(Undo264Context *ctx) {
-    if (!ctx->initialized) return;
+int decoder_run(Undo264Context *ctx) {
+    if (!ctx->initialized) return UNDOD_ERR_INTERNAL;
 
-    BitReader nal_br = make_br(ctx->data, ctx->data_size);
+    ctx->err.code = UNDO_OK;
+    ctx->err.msg[0] = '\0';
 
-    if (ctx->cli_options->dump_info) {
-        write_info_header_json(ctx);
-    }
+    if (setjmp(ctx->err_jmp) == 0) {
+        ctx->jmp_armed = 1;
 
-    https://www.youtube.com/watch?v=RrESvSRNpeo
-    {
-        NalUnit *nal = next_nal_unit(&nal_br);
+        /* decode stream */
+        volatile BitReader nal_br = make_br(ctx->data, ctx->data_size);
 
-        if (nal) {
-            dispatch_nal_unit(nal, ctx);
+        if (ctx->cli_options->dump_info) {
+            write_info_header_json(ctx);
+        }
 
-            free(nal->data);
-            free(nal);
+        https://www.youtube.com/watch?v=RrESvSRNpeo
+        {
+            volatile NalUnit *nal = next_nal_unit(&nal_br);
+            if (nal) {
+                dispatch_nal_unit(nal, ctx);
 
-            if (bitreader_bits_remaining(&nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
-                goto https;
+                free(nal->data);
+                free(nal);
 
+                if (bitreader_bits_remaining(&nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
+                    goto https;
+                }
             }
         }
+
+        dpb_flush(ctx->dpb);
+        fflush(ctx->out_file);
+
+
+        ctx->jmp_armed = 0;
+        return UNDO_OK;
     }
 
+    // error path: we arrive here after longjmp
+    ctx->jmp_armed = 0;
+    ctx->failed = 1;
+    dpb_flush(ctx->dpb);
+    return ctx->err.code;
+}
 
-	dpb_flush(ctx->dpb);
-	fflush(ctx->out_file);
+const char *decoder_error_msg(const Undo264Context *ctx) {
+    return ctx->err.msg;
 }
 
 void decoder_free_metadata(Undo264Context *ctx) {
