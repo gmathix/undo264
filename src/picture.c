@@ -11,7 +11,45 @@
 Picture EMPTY_PICTURE = {};
 
 
+
+/** table A-1 in Annex A (page 292) */
+static int get_max_pic_size_mbs(SPS *sps, Undo264Context *ctx) {
+    if ((sps->profile_idc == PROFILE_BASELINE || sps->profile_idc == PROFILE_MAIN || sps->profile_idc == PROFILE_HIGH) &&
+        sps->constraint_set3_flag == 1 && sps->level_idc == 11) {
+        return 99;
+    } else {
+        switch (sps->level_idc) {
+            case  9: return 99;
+            case 10: return 99;
+            case 11: return 396;
+            case 12: return 396;
+            case 13: return 396;
+            case 20: return 396;
+            case 21: return 792;
+            case 22: return 1620;
+            case 30: return 1620;
+            case 31: return 3600;
+            case 32: return 5120;
+            case 40: return 8192;
+            case 41: return 8192;
+            case 42: return 8704;
+            case 50: return 22080;
+            case 51: return 36864;
+            case 52: return 36864;
+            default: {
+                DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid level_idc: %d", sps->level_idc);
+            }
+        }
+    }
+}
+
+
 Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
+    int num_mbs = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
+    int max_size = get_max_pic_size_mbs(sps, ctx);
+    DEC_CHECK(ctx, num_mbs <= max_size, UNDO_ERR_LIMIT,
+        "SPS requested picture size exceeds max size defined by level_idc (max %d, got %d)", max_size, num_mbs)
+
     Picture *p  = calloc_check(1, sizeof(Picture), ctx);
 
 	p->widthY      = sps->pic_width_samples_l;
@@ -22,7 +60,7 @@ Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
 	p->heightCropY = p->heightY - sps->crop_bottom_offset - sps->crop_top_offset;
 	p->widthCropC  = p->widthCropY / 2;
 	p->heightCropC = p->heightCropY / 2;
-    p->num_mbs     = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
+    p->num_mbs     = num_mbs;
 
     p->luma        = calloc_check(p->widthY * p->heightY, 1, ctx);
 
