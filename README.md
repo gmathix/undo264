@@ -44,6 +44,12 @@ chmod +x download_vectors.sh && chmod +x conformance_test.sh
 ./conformance_test.sh FRExt
 ```
 
+# Robustness
+
+Undo264 is not hardened against malformed or malicious bitstreams, though I'm planning to run a fuzzer on it in order 
+to find bugs and vulnerabilities. 
+As this is more of an educational project rather than a decoder intended for production, I will not fix everything 
+the fuzzer finds. Instead, I will fix and document a few, again, for educational purposes.
 
 # Benchmarks
 
