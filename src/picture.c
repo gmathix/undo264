@@ -3,6 +3,7 @@
 //
 #include "picture.h"
 
+#include "error.h"
 #include "slice.h"
 #include "util/dump_info.h"
 
@@ -11,7 +12,7 @@ Picture EMPTY_PICTURE = {};
 
 
 Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
-    Picture *p  = calloc(1, sizeof(Picture));
+    Picture *p  = calloc_check(1, sizeof(Picture), ctx);
 
 	p->widthY      = sps->pic_width_samples_l;
 	p->heightY     = sps->pic_height_samples_l;
@@ -23,18 +24,19 @@ Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
 	p->heightCropC = p->heightCropY / 2;
     p->num_mbs     = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
 
-    p->luma        = calloc(p->widthY * p->heightY, 1);
-    p->cb          = calloc(p->widthY/2 * (p->heightY/2), 1);
-    p->cr          = calloc(p->widthY/2 * (p->heightY/2), 1);
+    p->luma        = calloc_check(p->widthY * p->heightY, 1, ctx);
 
-    p->mb_types     = calloc(p->num_mbs, sizeof( int ));
-    p->pred_flags   = calloc(p->num_mbs, sizeof( bool [2][4] ));
+    p->cb          = calloc_check(p->widthY/2 * (p->heightY/2), 1, ctx);
+    p->cr          = calloc_check(p->widthY/2 * (p->heightY/2), 1, ctx);
 
-    p->motion_val   = calloc(p->num_mbs, sizeof(int16_t  [2][16][2]));
-    p->ref_idx      = calloc(p->num_mbs, sizeof(int8_t   [2][16]));
-    p->ref_pics     = calloc(p->num_mbs, sizeof(Picture* [2][16]));
+    p->mb_types     = calloc_check(p->num_mbs, sizeof( int ), ctx);
+    p->pred_flags   = calloc_check(p->num_mbs, sizeof( bool [2][4] ), ctx);
 
-    p->json_payload = make_picture_json_payload();
+    p->motion_val   = calloc_check(p->num_mbs, sizeof(int16_t  [2][16][2]), ctx);
+    p->ref_idx      = calloc_check(p->num_mbs, sizeof(int8_t   [2][16]), ctx);
+    p->ref_pics     = calloc_check(p->num_mbs, sizeof(Picture* [2][16]), ctx);
+
+    p->json_payload = make_picture_json_payload(ctx);
 
     return p;
 }
@@ -58,7 +60,7 @@ void picture_reset(Picture *p, Undo264Context *ctx) {
     p->bottom_field_order_cnt = 0;
 
     free_picture_json_payload(p->json_payload);
-    p->json_payload = make_picture_json_payload();
+    p->json_payload = make_picture_json_payload(ctx);
 }
 
 void picture_free(Picture *p) {
@@ -114,11 +116,9 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
         decoder_alloc_metadata(ctx);
     }
 
-    pool->slots = malloc(pool->size * sizeof(Picture*));
-    if (!pool->slots) { perror("malloc"); exit(1); }
+    pool->slots = calloc_check(pool->size, sizeof(Picture*), ctx);
 
-    pool->available = calloc(pool->size, sizeof(bool));
-    if (!pool->available) { perror("calllc"); exit(1); }
+    pool->available = calloc_check(pool->size, sizeof(bool), ctx);
 
     for (int i = 0; i < pool->size; i++) {
         pool->slots[i] = picture_alloc(sps, ctx);

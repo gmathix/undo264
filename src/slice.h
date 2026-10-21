@@ -71,8 +71,10 @@ typedef struct Slice {
 } Slice ;
 
 
-static Slice *slice_alloc() {
-    Slice *s = calloc(1, sizeof(Slice));
+
+
+static Slice *slice_alloc(Undo264Context *ctx) {
+    Slice *s = calloc_check(1, sizeof(Slice), ctx);
     return s;
 }
 
@@ -171,7 +173,7 @@ static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
     ParamSets *ps = ctx->ps;
 
 
-    SliceHeader *sh = calloc(1, sizeof(SliceHeader));
+    SliceHeader *sh = calloc_check(1, sizeof(SliceHeader), ctx);
 
     sh->first_mb   = read_ue(br);
     sh->slice_type = read_ue(br);

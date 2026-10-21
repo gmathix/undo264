@@ -10,7 +10,7 @@
 
 
 
-noreturn void dec_fail(Undo264Context *ctx, undo_status code, const char *file, int line,
+noreturn static void dec_fail(Undo264Context *ctx, undo_status code, const char *file, int line,
                        const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -32,6 +32,5 @@ noreturn void dec_fail(Undo264Context *ctx, undo_status code, const char *file, 
     dec_fail((d), (code), __FILE__, __LINE__, __VA_ARGS__)
 #define DEC_CHECK(d, cond, code, ...) \
     do { if (UNLIKELY(!(cond))) DEC_FAIL((d), (code), __VA_ARGS__); } while (0);
-
 
 #endif //UNDO264_ERROR_H

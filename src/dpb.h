@@ -49,7 +49,7 @@ typedef struct DPB {
 
 
 static DPB *make_dpb(const Undo264Context *ctx) {
-    DPB *dpb = calloc(1, sizeof(DPB));
+    DPB *dpb = calloc_check(1, sizeof(DPB), ctx);
 
 
     dpb->ctx = ctx;

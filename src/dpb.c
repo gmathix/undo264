@@ -18,6 +18,8 @@
 
 
 #include "dpb.h"
+
+#include "error.h"
 #include "slice.h"
 
 #include "tests/profiler.h"
@@ -157,9 +159,7 @@ void derive_poc(DPB *dpb, Picture *pic) {
          * just because there is so little content out there to test with
          */
 
-
-        printf("poc type 1 not implemented, i refuse to implement the cursed POC mode\n");
-        exit(67);
+        DEC_FAIL(dpb->ctx, UNDO_ERR_UNSUPPORTED, "POC type 1 not supported");
 
     } else if (pic->sh->sps->poc_type == 2) {
         /* commonly used (specific use cases)
@@ -778,7 +778,7 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
             nonExistingPic->nal_ref_idc    = currPic->nal_ref_idc;
             nonExistingPic->long_term_frame_idx = -1;
 
-            nonExistingPic->sh = calloc(1, sizeof(SliceHeader));
+            nonExistingPic->sh = calloc_check(1, sizeof(SliceHeader), dpb->ctx);
             memcpy(nonExistingPic->sh, currPic->sh, sizeof(SliceHeader));
 
 
@@ -842,7 +842,7 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
 /** ==================== MISC UTILS ==================== **/
 
 /** table A-1 in Annex A (page 292) */
-static int get_dpb_size_in_pictures(SPS *sps) {
+static int get_dpb_size_in_pictures(SPS *sps, Undo264Context *ctx) {
     int size_mbs = sps->pic_width_in_mbs * sps->pic_height_in_map_units;
 
     int size = 0; // max dpb size in macroblocks
@@ -869,8 +869,7 @@ static int get_dpb_size_in_pictures(SPS *sps) {
             case 51: size = 184320; break;
             case 52: size = 184320; break;
             default: {
-                fprintf(stderr, "invalid level_idc: %d\n", sps->level_idc);
-                exit(1);
+                DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid level_idc: %d", sps->level_idc);
             }
         }
     }
@@ -887,10 +886,9 @@ static int get_dpb_size_in_pictures(SPS *sps) {
 /** ==================== PRIMARY PUBLIC API ==================== **/
 
 void dpb_init(DPB *dpb, SPS *sps) {
-    dpb->slots_size = get_dpb_size_in_pictures(sps) + 1;
+    dpb->slots_size = get_dpb_size_in_pictures(sps, dpb->ctx) + 1;
 
-    dpb->slots = calloc(dpb->slots_size, sizeof(Picture*));
-    if (!dpb->slots) { perror("calloc"); exit(1); }
+    dpb->slots = calloc_check(dpb->slots_size, sizeof(Picture*), dpb->ctx);
 
     dpb->initialized = true;
 }

@@ -9,7 +9,10 @@
 
 #include "ps.h"
 
+#include <unistd.h>
+
 #include "dequant.h"
+#include "error.h"
 #include "util/expgolomb.h"
 
 
@@ -34,7 +37,7 @@ int decode_sps(Undo264Context *ctx) {
     ParamSets *ps = ctx->ps;
 
 
-    SPS *sps = calloc(1, sizeof(SPS));
+    SPS *sps = calloc_check(1, sizeof(SPS), ctx);
 
 
     int profile_idc = read_u(br, 8);
@@ -52,20 +55,17 @@ int decode_sps(Undo264Context *ctx) {
 
 
     uint32_t sps_id = read_ue(br);
-    if (sps_id > MAX_SPS_COUNT) {
-        printf("sps id %u out of range, max is %d", sps_id, MAX_SPS_COUNT);
-        return -1;
-    }
+    DEC_CHECK(ctx, sps_id < MAX_SPS_COUNT, UNDO_ERR_BITSTREAM,
+        "sps_id %u out of range, max is %d", sps_id, MAX_SPS_COUNT);
 
 
-    if (profile_idc != PROFILE_BASELINE &&
-        profile_idc != PROFILE_MAIN &&
-        profile_idc != PROFILE_EXTENDED &&
-        profile_idc != PROFILE_HIGH) {
 
-        printf("profile_idc %s not supported, exiting.\n", profile_to_string(profile_idc));
-        exit(67);
-    }
+    DEC_CHECK(ctx,
+        (profile_idc == PROFILE_BASELINE || profile_idc == PROFILE_MAIN ||
+         profile_idc == PROFILE_EXTENDED || profile_idc == PROFILE_HIGH),
+         UNDO_ERR_UNSUPPORTED,
+         "profile_idc %d (%s) is not supported", profile_idc, profile_to_string(profile_idc));
+
 
 
     sps->sps_id = sps_id;
@@ -148,7 +148,7 @@ int decode_sps(Undo264Context *ctx) {
         sps->offset_for_top_to_bottom_field        = read_se(br);
         sps->num_ref_frames_in_poc_cycle = read_ue(br);
 
-        sps->offset_for_ref_frame = malloc(sps->num_ref_frames_in_poc_cycle * sizeof(int32_t));
+        sps->offset_for_ref_frame = calloc_check(sps->num_ref_frames_in_poc_cycle, sizeof(int32_t), ctx);
         for (int i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
             sps->offset_for_ref_frame[i] = read_se(br);
         }
@@ -167,12 +167,10 @@ int decode_sps(Undo264Context *ctx) {
     sps->pic_width_in_mbs_minus1 = read_ue(br);
     sps->pic_height_in_map_units_minus1 = read_ue(br);
     sps->frame_mbs_only_flag = read_u(br, 1);
-    if (!sps->frame_mbs_only_flag) {
-        sps->mb_aff_flag = read_u(br, 1);
 
-        fprintf(stderr, "field coding not supported, exiting.\n");
-        exit(67);
-    }
+    DEC_CHECK(ctx, sps->frame_mbs_only_flag, UNDO_ERR_UNSUPPORTED,
+        "field coding is not supported");
+
 
 
     sps->direct_8x8_inference_flag = read_u(br, 1);
@@ -251,7 +249,7 @@ int decode_pps(Undo264Context *ctx) {
     BitReader *br = ctx->br;
     ParamSets *ps = ctx->ps;
 
-    PPS *pps = calloc(1, sizeof(PPS));
+    PPS *pps = calloc_check(1, sizeof(PPS), ctx);
 
 
     pps->pps_id = read_ue(br);
@@ -271,10 +269,8 @@ int decode_pps(Undo264Context *ctx) {
     pps->bottom_field_pic_order_in_frame_present_flag = read_u(br, 1);
     pps->num_slice_groups_minus1 = read_ue(br);
 
-    if (pps->num_slice_groups_minus1 > 0) {
-        printf("multiple slice groups not supported, exiting.\n");
-        exit(67);
-    }
+    DEC_CHECK(ctx, pps->num_slice_groups_minus1 == 0, UNDO_ERR_UNSUPPORTED,
+        "mutliple slice groups not supported");
 
 
 

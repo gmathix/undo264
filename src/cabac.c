@@ -14,6 +14,16 @@ int8_t p_state_idx[1024];
 int8_t val_mps[1024];
 
 
+
+
+CabacContext *make_cactx(Undo264Context *ctx) {
+    CabacContext *cactx = calloc_check(1, sizeof(CabacContext), ctx);
+    return cactx;
+}
+void free_cactx(CabacContext *cactx) {
+    free(cactx);
+}
+
 void cabac_init_ctx_vars(Slice *slice, int idc) {
     int qpy = slice->sh->pps->pic_init_qp + slice->sh->slice_qp_delta;
 

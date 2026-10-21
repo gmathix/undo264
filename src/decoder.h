@@ -20,11 +20,11 @@
 
 typedef enum {
     UNDO_OK = 0,
-    UNDO_ERR_BITSTREAM,   // invalid per spe
+    UNDO_ERR_BITSTREAM,   // invalid per spec
     UNDO_ERR_UNSUPPORTED, // valid but out of scope
     UNDO_ERR_LIMIT,       // exceeds limits defined by level_idc
     UNDO_ERR_NOMEM,
-    UNDOD_ERR_INTERNAL,
+    UNDO_ERR_INTERNAL,
 } undo_status ;
 
 typedef struct {
@@ -183,29 +183,7 @@ typedef struct Undo264Context {
 } Undo264Context ;
 
 
-static Undo264Context *undo264_context_make(void) {
-    Undo264Context *ctx = calloc(1, sizeof(Undo264Context));
-    if (!ctx) {
-        perror("calloc");
-        return NULL;
-    }
-
-    ctx->out_path = "output.yuv";
-    ctx->info_out_path = "h264_info.json";
-
-    ctx->cli_options = calloc(1, sizeof(CLIOptions));
-
-    ctx->cli_options->dump_monochrome = false;
-    ctx->cli_options->dump_info       = false;
-
-    ctx->cli_options->deblock         = true;
-    ctx->cli_options->dump_frames     = true;
-    ctx->cli_options->use_simd        = true;
-    ctx->cli_options->use_sse         = true;
-    ctx->cli_options->use_avx2        = true;
-
-    return ctx;
-}
+Undo264Context *undo264_context_make(void);
 
 void decoder_init(Undo264Context *ctx);
 int  decoder_run(Undo264Context *ctx);
@@ -214,6 +192,7 @@ void decoder_free_metadata(Undo264Context *ctx);
 void decoder_alloc_metadata(Undo264Context *ctx);
 void decoder_free(Undo264Context *ctx);
 
+void *calloc_check(size_t nb, size_t size, Undo264Context *ctx);
 
 
 #endif //TOY_H264_DECODER_H

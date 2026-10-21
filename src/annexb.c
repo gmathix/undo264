@@ -2,8 +2,12 @@
 // Created by gmathix on 3/17/26.
 //
 
-#include "global.h"
+
 #include "annexb.h"
+
+#include "decoder.h"
+#include "global.h"
+
 
 #include "util/formulas.h"
 
@@ -30,7 +34,7 @@ int count_nals(const uint8_t *buf, size_t size) {
 
 
 /* split the raw stream into NAL units with emulation prevention bytes removal */
-void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int maxNals) {
+void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int maxNals, Undo264Context *ctx) {
     size_t i = 0;
     int nal_count = 0;
 
@@ -72,7 +76,8 @@ void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int ma
                 unit.data = nal_to_rbsp(
                     buf + start + 1, // remove header byte from payload
                     next - start - 1,
-                    &rbsp_size
+                    &rbsp_size,
+                    ctx
                     );
 
 
@@ -92,8 +97,8 @@ void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int ma
     }
 }
 
-NalUnit *next_nal_unit(BitReader *br) {
-    NalUnit *nal = calloc(1, sizeof(NalUnit));
+NalUnit *next_nal_unit(BitReader *br, Undo264Context *ctx) {
+    NalUnit *nal = calloc_check(1, sizeof(NalUnit), ctx);
 
     while (bitreader_peek_bits(br, 24) != 1 &&
            bitreader_peek_bits(br, 32) != 1) {
@@ -122,7 +127,7 @@ NalUnit *next_nal_unit(BitReader *br) {
     size_t rbsp_size = 0;
     nal->data = nal_to_rbsp(
         br->data + br->byte_pos + 1, // remove header byte from payload
-        size, &rbsp_size);
+        size, &rbsp_size, ctx);
 
     nal->size = rbsp_size;
     nal->ref_idc = (header >> 5) & 0x03;
@@ -134,8 +139,8 @@ NalUnit *next_nal_unit(BitReader *br) {
     return nal;
 }
 
-uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size) {
-    uint8_t *rbsp = malloc(size); // worst case : same size
+uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size, Undo264Context *ctx) {
+    uint8_t *rbsp = calloc_check(size, sizeof(uint8_t), ctx); // worst case : same size
     size_t j = 0;
 
     // uint8_t *src = buf;

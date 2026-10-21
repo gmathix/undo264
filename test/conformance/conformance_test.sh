@@ -102,7 +102,7 @@ while IFS= read -r -d '' subdir; do
     if [[ $ret -eq 0 ]]; then
         echo "  [OK]    Undo264 -> $(basename "$undo264_out")"
         ((inscope_bitstreams++))
-    elif [[ $ret -eq 67 ]]; then
+    elif [[ $ret -eq 3 ]]; then
         echo "  [SKIP] Out-of-scope bitstream (see ${stream_name}_undo264.log)"
         ((outscope_bitstreams++))
         continue

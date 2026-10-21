@@ -31,6 +31,8 @@
 
 #include <sys/stat.h>
 
+#include "error.h"
+
 #ifdef UNIX
 #include <unistd.h>
 #include <sys/mman.h>
@@ -57,42 +59,79 @@ int mb_debug              = -1;
 int nb_frames_before_stop = -1;
 
 
+
+
+
+
+void *calloc_check(size_t nb, size_t size, Undo264Context *ctx) {
+    void *p = calloc(nb, size);
+    DEC_CHECK(ctx, p, UNDO_ERR_INTERNAL, "calloc failed");
+    return p;
+}
+
+
+
+
+Undo264Context *undo264_context_make(void) {
+    Undo264Context *ctx = calloc(1, sizeof(Undo264Context));
+    if (!ctx) {
+        perror("calloc");
+        return NULL;
+    }
+
+    ctx->out_path = "output.yuv";
+    ctx->info_out_path = "h264_info.json";
+
+    ctx->cli_options = calloc_check(1, sizeof(CLIOptions), ctx);
+
+    ctx->cli_options->dump_monochrome = false;
+    ctx->cli_options->dump_info       = false;
+
+    ctx->cli_options->deblock         = true;
+    ctx->cli_options->dump_frames     = true;
+    ctx->cli_options->use_simd        = true;
+    ctx->cli_options->use_sse         = true;
+    ctx->cli_options->use_avx2        = true;
+
+    return ctx;
+}
+
 void decoder_init(Undo264Context *ctx) {
     /* structs initialization */
 
-    CabacContext *cactx = make_cactx();
+    CabacContext *cactx = make_cactx(ctx);
     ctx->cactx = cactx;
 
-    DSPContext *dsp_context = calloc(1, sizeof(DSPContext));
+    DSPContext *dsp_context = calloc_check(1, sizeof(DSPContext), ctx);
     ctx->dsp = dsp_context;
     dsp_init(ctx);
 
-    BitReader *br = malloc(sizeof(BitReader));
+    BitReader *br = calloc_check(1, sizeof(BitReader), ctx);
     ctx->br = br;
     ctx->global_bit_offset = 0;
 
-    ParamSets *ps = calloc(1, sizeof(ParamSets));
+    ParamSets *ps = calloc_check(1, sizeof(ParamSets), ctx);
     ctx->ps = ps;
 
-    ctx->current_slice = slice_alloc();
+    ctx->current_slice = slice_alloc(ctx);
 
     ctx->dpb = make_dpb(ctx);
 
-    ctx->prf = malloc(sizeof(Profiler));
+    ctx->prf = calloc_check(1, sizeof(Profiler), ctx);
     profiler_init(ctx->prf);
 
-    ctx->pool = calloc(1, sizeof(PicturePool));
+    ctx->pool = calloc_check(1, sizeof(PicturePool), ctx);
     ctx->pic_pool_initialized = false;
 
-    ctx->scratchMb = calloc(1, sizeof(Macroblock));
-    ctx->currMb = calloc(1, sizeof(Macroblock));
+    ctx->scratchMb = calloc_check(1, sizeof(Macroblock), ctx);
+    ctx->currMb = calloc_check(1, sizeof(Macroblock), ctx);
     ctx->prevQPY = 0;
 
 
 
 
-    ctx->levelScale4x4 = calloc(6, sizeof( int16_t[52][4][4] ));
-    ctx->levelScale8x8 = calloc(2, sizeof( int16_t[52][8][8] ));
+    ctx->levelScale4x4 = calloc_check(6, sizeof( int16_t[52][4][4] ), ctx);
+    ctx->levelScale8x8 = calloc_check(2, sizeof( int16_t[52][8][8] ), ctx);
 
 
 
@@ -243,7 +282,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
 int decoder_run(Undo264Context *ctx) {
-    if (!ctx->initialized) return UNDOD_ERR_INTERNAL;
+    if (!ctx->initialized) return UNDO_ERR_INTERNAL;
 
     ctx->err.code = UNDO_OK;
     ctx->err.msg[0] = '\0';
@@ -260,7 +299,7 @@ int decoder_run(Undo264Context *ctx) {
 
         https://www.youtube.com/watch?v=RrESvSRNpeo
         {
-            volatile NalUnit *nal = next_nal_unit(&nal_br);
+            volatile NalUnit *nal = next_nal_unit(&nal_br, ctx);
             if (nal) {
                 dispatch_nal_unit(nal, ctx);
 
@@ -302,8 +341,8 @@ void decoder_alloc_metadata(Undo264Context *ctx) {
 
     ctx->num_mbs = (int32_t)ctx->ps->sps->pic_width_in_mbs * (int32_t)ctx->ps->sps->pic_height_in_map_units;
 
-    ctx->mb_metadata = calloc(ctx->num_mbs, sizeof( MacroblockMetadata));
-    ctx->total_coeffs = calloc(ctx->num_mbs, sizeof( uint8_t [24]));
+    ctx->mb_metadata = calloc_check(ctx->num_mbs, sizeof( MacroblockMetadata), ctx);
+    ctx->total_coeffs = calloc_check(ctx->num_mbs, sizeof( uint8_t [24]), ctx);
 
 
     ctx->mb_metadata_initialized = true;
