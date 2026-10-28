@@ -70,6 +70,9 @@ endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
+set(FUZZ_ENGINE "-fsanitize=fuzzer" CACHE STRING
+        "Fuzzing engine: -fsanitize=fuzzer, or $LIB_FUZZING_ENGINE under OSS-Fuzz/ClusterFuzzLite")
+
 
 # default to a sane build type if none is given (for makefile/ninja only)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -82,9 +85,10 @@ option(USE_NATIVE_ARCH "Optimize for the host CPU (-march=native); native builds
 set(SANITIZE "" CACHE STRING "Comma-separated sanitizers for -fsanitize=, e.g. address,undefined")
 option(BUILD_TOOLS "Build gen_rgb_video / compare_streams helper tools" ON)
 option(COPY_MINGW_RUNTIME "MinGW: copy runtime DLLs next to the executables after building" OFF)
+option(BUILD_FUZZERS "Build the fuzz target (needs clang for libFuzzer)" OFF)
+
 
 set(UNDO264_SOURCES
-        src/main.c
         src/intra.c
         src/annexb.c
         src/ps.c
@@ -187,21 +191,29 @@ function(undo264_copy_mingw_runtime target)
 endfunction()
 
 
-# ---- Main target -------------------------------------------------------------
-add_executable(undo264 ${UNDO264_SOURCES})
-target_link_libraries(undo264 PRIVATE ${UNDO264_LIBM} cjson undo264_warnings undo264_sanitizers undo264_link)
-target_include_directories(undo264 PRIVATE src)
-target_compile_definitions(undo264 PRIVATE
+# ---- Main Target ---------------------------------------------------
+add_library(undo264_core STATIC ${UNDO264_SOURCES})
+target_include_directories(undo264_core PUBLIC src)
+target_link_libraries(undo264_core PUBLIC
+        ${UNDO264_LIBM} undo264_warnings undo264_sanitizers undo264_link)
+target_compile_definitions(undo264_core PUBLIC
         $<$<CONFIG:Debug,DebugASAN>:SLICES_LOG=1>
-)
-if(WIN32)
-    target_compile_definitions(undo264 PRIVATE WIN32)
-endif()
-if(UNIX)
-    target_compile_definitions(undo264 PRIVATE UNIX)
-endif()
+        $<$<BOOL:${WIN32}>:WIN32>
+        $<$<BOOL:${UNIX}>:UNIX>)
+
+add_executable(undo264 src/main.c)
+target_link_libraries(undo264 PRIVATE undo264_core)
 undo264_copy_mingw_runtime(undo264)
 
+
+
+if(BUILD_FUZZERS)
+    add_executable(fuzz_decoder fuzzing/fuzz_target.c)
+    separate_arguments(_fuzz_engine UNIX_COMMAND "${FUZZ_ENGINE}")
+    target_link_libraries(fuzz_decoder PRIVATE undo264_core ${_fuzz_engine})
+
+    target_compile_options(undo264_core PUBLIC -UNDEBUG)
+endif()
 
 # ---- Optional helper tools ---------------------------------------------------
 if(BUILD_TOOLS)
