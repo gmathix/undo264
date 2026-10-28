@@ -143,32 +143,6 @@ uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size, Undo264
     uint8_t *rbsp = calloc_check(size, sizeof(uint8_t), ctx); // worst case : same size
     size_t j = 0;
 
-    // uint8_t *src = buf;
-    // uint8_t *end = buf+size;
-    // uint8_t *dst = rbsp;
-    //
-    // while (src < end) {
-    //     uint8_t *ptr = memchr(src, 0x03, end - src);
-    //     if (ptr == NULL) {
-    //         /* no more 0x03, just copy the rest */
-    //         memcpy(dst, src, end - src);
-    //         dst += end - src;
-    //         break;
-    //     }
-    //
-    //     if (ptr >= buf+2 && *(ptr-1) == 0x00 && *(ptr-2) == 0x00) {
-    //         // emulation prevention byte found, remove include everything up to (not including) the 0x03
-    //         memcpy(dst, src, ptr - src);
-    //         dst += ptr - src;
-    //         src = ptr + 1; // skip the 0x03
-    //     } else {
-    //         memcpy(dst, src, ptr - src + 1);
-    //         dst += ptr - src + 1;
-    //         src = ptr + 1;
-    //     }
-    // }
-    // *rbsp_size = dst - rbsp;
-
     for (size_t i = 0; i < size; i++) {
         if (i+2 < size && buf[i] == 0x00 && buf[i+1] == 0x00 && buf[i+2] == 0x03) { // skip emulation prevention byte
             rbsp[j++] = 0x00;
