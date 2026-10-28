@@ -354,7 +354,8 @@ void decoder_free(Undo264Context *ctx) {
     free_cactx(ctx->cactx);
 
     #ifdef UNIX
-        munmap((void*)ctx->data, ctx->data_size);
+        if (ctx->data_is_mapped)
+            munmap((void*)ctx->data, ctx->data_size);
     #endif
 
     #ifdef WIN32
@@ -388,7 +389,7 @@ void decoder_free(Undo264Context *ctx) {
 
     dpb_free(ctx->dpb);
 
-    if (ctx->cli_options->dump_frames)
+    if (ctx->cli_options->dump_frames && ctx->out_file)
         fclose(ctx->out_file);
 
     free(ctx->cli_options);

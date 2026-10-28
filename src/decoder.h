@@ -73,6 +73,7 @@ typedef struct Undo264Context {
 #endif
 
     const uint8_t *data;
+    bool data_is_mapped;
     size_t data_size;
     size_t global_bit_offset;
 

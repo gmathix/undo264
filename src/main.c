@@ -130,6 +130,7 @@ static int open_files(Undo264Context *ctx) {
         return 1;
     }
     madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+    ctx->data_is_mapped = true;
 #endif
 
 #ifdef WIN32
