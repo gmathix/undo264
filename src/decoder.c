@@ -310,6 +310,7 @@ int decoder_run(Undo264Context *ctx) {
                 dispatch_nal_unit(ctx->next_nal_unit, ctx);
 
                 free(ctx->next_nal_unit->data);
+                ctx->next_nal_unit->data = NULL;
 
                 if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
                     goto https;
