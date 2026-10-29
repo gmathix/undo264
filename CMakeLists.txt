@@ -213,6 +213,9 @@ if(BUILD_FUZZERS)
     target_link_libraries(fuzz_decoder PRIVATE undo264_core ${_fuzz_engine})
 
     target_compile_options(undo264_core PUBLIC -UNDEBUG)
+
+    add_executable(replay_main fuzzing/replay_main.c fuzzing/fuzz_target.c)
+    target_link_libraries(replay_main PRIVATE undo264_core)
 endif()
 
 # ---- Optional helper tools ---------------------------------------------------

@@ -15,6 +15,7 @@ extern int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     ctx->data_size = Size;
 
     ctx->cli_options->dump_frames = false;
+    ctx->cli_options->use_simd = false;
 
     undo_status st = decoder_run(ctx);
 
