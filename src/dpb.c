@@ -476,6 +476,8 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
                 mark_curr_pic_lt(ctx->dpb, lt_frame_idx);
             }
         } while (mmco != 0);
+
+        free(mmco_br);
     }
 }
 
@@ -776,7 +778,6 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
             nonExistingPic->nal_ref_idc    = currPic->nal_ref_idc;
             nonExistingPic->long_term_frame_idx = -1;
 
-            nonExistingPic->sh = calloc_check(1, sizeof(SliceHeader), dpb->ctx);
             memcpy(nonExistingPic->sh, currPic->sh, sizeof(SliceHeader));
 
 
