@@ -14,6 +14,8 @@ extern int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     ctx->data = Data;
     ctx->data_size = Size;
 
+    ctx->cli_options->dump_frames = false;
+
     undo_status st = decoder_run(ctx);
 
     decoder_free(ctx);
