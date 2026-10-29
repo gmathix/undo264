@@ -74,7 +74,12 @@ Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
     p->ref_idx      = calloc_check(p->num_mbs, sizeof(int8_t   [2][16]), ctx);
     p->ref_pics     = calloc_check(p->num_mbs, sizeof(Picture* [2][16]), ctx);
 
-    p->json_payload = make_picture_json_payload(ctx);
+    p->sh = calloc_check(1, sizeof(SliceHeader), ctx);
+
+    if (ctx->cli_options->dump_info)
+        p->json_payload = make_picture_json_payload(ctx);
+    else
+        p->json_payload = NULL;
 
     return p;
 }
@@ -97,7 +102,10 @@ void picture_reset(Picture *p, Undo264Context *ctx) {
     p->top_field_order_cnt = 0;
     p->bottom_field_order_cnt = 0;
 
-    free_picture_json_payload(p->json_payload);
+    memset(p->sh, 0, sizeof(SliceHeader));
+
+    if (p->json_payload)
+        free_picture_json_payload(p->json_payload);
     p->json_payload = make_picture_json_payload(ctx);
 }
 
@@ -112,7 +120,10 @@ void picture_free(Picture *p) {
     free(p->ref_idx);
     free(p->ref_pics);
 
-    free_picture_json_payload(p->json_payload);
+    free(p->sh);
+
+    if (p->json_payload)
+        free_picture_json_payload(p->json_payload);
 
     free(p);
 }
@@ -173,7 +184,10 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
 
 void pic_pool_free(PicturePool *pool, const Undo264Context *ctx) {
     for (int i = 0; i < pool->size; i++) {
-        if (pool->slots[i]) picture_free(pool->slots[i]);
+        Picture *pic = pool->slots[i];
+        if (pic) {
+            picture_free(pic);
+        }
     }
     free(pool->slots);
     free(pool->available);
@@ -191,7 +205,7 @@ Picture *pic_pool_get(PicturePool *pool) {
     return NULL; // bug
 }
 
-void pic_pool_getback(Picture *pic, PicturePool *pool) {
+void pic_pool_getback(Picture *pic, PicturePool *pool, Undo264Context *ctx) {
     int idx = -1;
     for (int i = 0; i < pool->size; i++) {
         if (pool->slots[i] == pic) {
@@ -202,5 +216,6 @@ void pic_pool_getback(Picture *pic, PicturePool *pool) {
     if (idx != -1) {
         pool->available[idx] = true;
         pool->nb_available++;
+        picture_reset(pic, ctx);
     }
 }

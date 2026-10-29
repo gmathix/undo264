@@ -93,6 +93,8 @@ typedef struct Undo264Context {
     struct Macroblock   *scratchMb;
     struct Macroblock   *currMb;
     struct CLIOptions   *cli_options;
+    struct NalUnit      *next_nal_unit;
+    struct BitReader    *nal_br;
 
 
     bool pic_pool_initialized;

@@ -127,6 +127,9 @@ void decoder_init(Undo264Context *ctx) {
     ctx->currMb = calloc_check(1, sizeof(Macroblock), ctx);
     ctx->prevQPY = 0;
 
+    ctx->next_nal_unit = calloc_check(1, sizeof(NalUnit), ctx);
+
+    ctx->nal_br = calloc_check(1, sizeof(BitReader), ctx);
 
 
 
@@ -217,7 +220,8 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
 
-            SliceHeader *sh = read_slice_header(nal_unit, ctx);
+            read_curr_slice_header(nal_unit, ctx);
+            SliceHeader *sh = ctx->curr_pic->sh;
 
             if (ctx->cli_options->dump_info) {
                 write_dpb_status_json(ctx->dpb, ctx->curr_pic->json_payload);
@@ -291,7 +295,7 @@ int decoder_run(Undo264Context *ctx) {
         ctx->jmp_armed = 1;
 
         /* decode stream */
-        volatile BitReader nal_br = make_br(ctx->data, ctx->data_size);
+        bitreader_init(ctx->nal_br, ctx->data, ctx->data_size);
 
         if (ctx->cli_options->dump_info) {
             write_info_header_json(ctx);
@@ -299,14 +303,15 @@ int decoder_run(Undo264Context *ctx) {
 
         https://www.youtube.com/watch?v=RrESvSRNpeo
         {
-            volatile NalUnit *nal = next_nal_unit(&nal_br, ctx);
-            if (nal) {
-                dispatch_nal_unit(nal, ctx);
+            memset(ctx->next_nal_unit, 0, sizeof(NalUnit));
 
-                free(nal->data);
-                free(nal);
+            find_next_nal_unit(ctx->nal_br, ctx);
+            if (ctx->next_nal_unit->data) {
+                dispatch_nal_unit(ctx->next_nal_unit, ctx);
 
-                if (bitreader_bits_remaining(&nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
+                free(ctx->next_nal_unit->data);
+
+                if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
                     goto https;
                 }
             }
@@ -324,6 +329,7 @@ int decoder_run(Undo264Context *ctx) {
     ctx->jmp_armed = 0;
     ctx->failed = 1;
     dpb_flush(ctx->dpb);
+
     return ctx->err.code;
 }
 
@@ -370,7 +376,13 @@ void decoder_free(Undo264Context *ctx) {
 
 
     for (int i = 0; i < MAX_SPS_COUNT; i++) {
-        if (ctx->ps->sps_list[i]) free(ctx->ps->sps_list[i]);
+        SPS *sps = ctx->ps->sps_list[i];
+        if (sps) {
+            if (sps->poc_type == 1) {
+                free(sps->offset_for_ref_frame);
+            }
+            free(ctx->ps->sps_list[i]);
+        }
     }
     for (int i = 0; i < MAX_PPS_COUNT; i++) {
         if (ctx->ps->pps_list[i]) free(ctx->ps->pps_list[i]);
@@ -382,9 +394,13 @@ void decoder_free(Undo264Context *ctx) {
 
     free(ctx->current_slice);
 
-
     free(ctx->currMb);
     free(ctx->scratchMb);
+
+    if (ctx->next_nal_unit->data)
+        free(ctx->next_nal_unit->data);
+    free(ctx->next_nal_unit);
+    free(ctx->nal_br);
 
 
     dpb_free(ctx->dpb);

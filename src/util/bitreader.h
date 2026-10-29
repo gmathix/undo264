@@ -23,7 +23,7 @@ typedef struct BitReader {
 
 
 static always_inline void bitreader_init(BitReader *br, const uint8_t *data, size_t size);
-static always_inline BitReader make_br(const uint8_t *data, size_t size);
+static always_inline BitReader *make_br(const uint8_t *data, size_t size);
 
 
 /*
@@ -155,9 +155,9 @@ static always_inline void bitreader_init(struct BitReader *br, const uint8_t *da
     bitreader_refill(br);
 }
 
-static always_inline BitReader make_br(const uint8_t *data, size_t size) {
-    BitReader br;
-    bitreader_init(&br, data, size);
+static always_inline BitReader *make_br(const uint8_t *data, size_t size) {
+    BitReader *br = calloc(1, sizeof(BitReader));
+    bitreader_init(br, data, size);
     return br;
 }
 

@@ -166,18 +166,24 @@ static void pred_weight_table(uint8_t type, SliceHeader *sh, Undo264Context *ctx
 
 
 /* 7.3.3 */
-static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
+static void read_curr_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
     BitReader *br = ctx->br;
     ParamSets *ps = ctx->ps;
 
+    uint32_t first_mb   = read_ue(br);
+    uint32_t slice_type = read_ue(br);
+    uint32_t pps_id     = read_ue(br);
 
-    SliceHeader *sh = calloc_check(1, sizeof(SliceHeader), ctx);
+    if (first_mb == 0) {
+        ctx->curr_pic = pic_pool_get(ctx->pool);
+    }
+    SliceHeader *sh = ctx->curr_pic->sh;
 
-    sh->first_mb   = read_ue(br);
-    sh->slice_type = read_ue(br);
-    sh->pps_id     = read_ue(br);
+    sh->first_mb   = first_mb;
+    sh->slice_type = slice_type;
+    sh->pps_id     = pps_id;
 
     #ifdef SLICES_LOG
         printf("DECODING %s SLICE\n", slice_type_to_string(sh->slice_type));
@@ -249,19 +255,12 @@ static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
     /* initialize current picture */
 
     if (sh->first_mb == 0) {
-        ctx->curr_pic = pic_pool_get(ctx->pool);
-        picture_reset(ctx->curr_pic, ctx);
-
-        ctx->curr_pic->sh = sh;
         ctx->curr_pic->nal_ref_idc = nal_unit->ref_idc;
         ctx->curr_pic->pic_num = sh->frame_num;
         ctx->curr_pic->frame_num = sh->frame_num;
         ctx->curr_pic->dec_idx = ctx->prf->total_frames;
         derive_poc(ctx->dpb, ctx->curr_pic);
         ctx->curr_pic->non_existing = false;
-    } else {
-        free(ctx->curr_pic->sh);
-        ctx->curr_pic->sh = sh;
     }
     ctx->current_slice->p_pic = ctx->curr_pic;
 
@@ -348,9 +347,6 @@ static SliceHeader *read_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
     if (pps->num_slice_groups_minus1 > 0) {
 
     }
-
-
-    return sh;
 }
 
 #endif //TOY_H264_SLICE_H

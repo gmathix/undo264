@@ -97,15 +97,14 @@ void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int ma
     }
 }
 
-NalUnit *next_nal_unit(BitReader *br, Undo264Context *ctx) {
-    NalUnit *nal = calloc_check(1, sizeof(NalUnit), ctx);
+void find_next_nal_unit(BitReader *br, Undo264Context *ctx) {
+    NalUnit *nal = ctx->next_nal_unit;
 
     while (bitreader_peek_bits(br, 24) != 1 &&
            bitreader_peek_bits(br, 32) != 1) {
         bitreader_skip_bits(br, 8);
         if (bitreader_bits_remaining(br) < 8) {
-            free(nal);
-            return NULL;
+            return;
         }
     }
 
@@ -134,9 +133,6 @@ NalUnit *next_nal_unit(BitReader *br, Undo264Context *ctx) {
     nal->type = header & 0x1F;
 
     bitreader_skip_bits(br, _min((br->size - br->byte_pos) * 8, size * 8));
-
-
-    return nal;
 }
 
 uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size, Undo264Context *ctx) {

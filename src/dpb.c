@@ -265,8 +265,7 @@ static void remove_unused_pic(int idx, DPB *dpb) {
     Picture *pic = dpb->slots[idx];
     if (!pic || pic->dpb_status != UNUSED_REF) return;
 
-    free(pic->sh);
-    pic_pool_getback(pic, dpb->ctx->pool);
+    pic_pool_getback(pic, dpb->ctx->pool, dpb->ctx);
     dpb->fullness--;
     dpb->slots[idx] = NULL;
 }
@@ -277,8 +276,7 @@ static void output_and_free_pic(int idx, DPB *dpb) {
 
     if (!pic->is_output) output_pic(idx, dpb);
 
-    free(pic->sh);
-    pic_pool_getback(pic, dpb->ctx->pool);
+    pic_pool_getback(pic, dpb->ctx->pool, dpb->ctx);
     dpb->fullness--;
     dpb->slots[idx] = NULL;
 }
@@ -432,31 +430,31 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
     if (pic->sh->adaptive_ref_pic_marking_mode_flag) {
 
         /* use a new bitreader to read back at the MMCO position in the bitstream */
-        BitReader mmco_br = make_br(ctx->br->data, ctx->br->size);
+        BitReader *mmco_br = make_br(ctx->br->data, ctx->br->size);
 
-        mmco_br.byte_pos = pic->sh->mmco_position_bits / 8;
-        mmco_br.cache_pos  = pic->sh->mmco_position_bits % 8;
-        bitreader_refill(&mmco_br);
+        mmco_br->byte_pos = pic->sh->mmco_position_bits / 8;
+        mmco_br->cache_pos  = pic->sh->mmco_position_bits % 8;
+        bitreader_refill(mmco_br);
 
         uint32_t mmco = 0;
         do {
-            mmco = read_ue(&mmco_br);
+            mmco = read_ue(mmco_br);
 
             if (mmco == 1) {
-                uint32_t diff_pic_nums = read_ue(&mmco_br) + 1;
+                uint32_t diff_pic_nums = read_ue(mmco_br) + 1;
                 mark_st_pic_unused(ctx->dpb, pic->frame_num - diff_pic_nums);
             }
             if (mmco == 2) {
-                uint32_t lt_pic_num = read_ue(&mmco_br);
+                uint32_t lt_pic_num = read_ue(mmco_br);
                 mark_lt_pic_unused(ctx->dpb, lt_pic_num);
             }
             if (mmco == 3) {
-                uint32_t diff_pic_nums = read_ue(&mmco_br) + 1;
-                uint32_t lt_frame_idx = read_ue(&mmco_br);
+                uint32_t diff_pic_nums = read_ue(mmco_br) + 1;
+                uint32_t lt_frame_idx = read_ue(mmco_br);
                 assign_lt_idx_to_st_pic(ctx->dpb, pic->frame_num - diff_pic_nums, lt_frame_idx);
             }
             if (mmco == 4) {
-                uint32_t max_lt_frame_idx = read_ue(&mmco_br) - 1;
+                uint32_t max_lt_frame_idx = read_ue(mmco_br) - 1;
                 decode_max_lt_frame_idx(ctx->dpb, max_lt_frame_idx);
             }
             if (mmco == 5) {
@@ -474,7 +472,7 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
                 ctx->curr_pic->poc = 0;
             }
             if (mmco == 6) {
-                uint32_t lt_frame_idx = read_ue(&mmco_br);
+                uint32_t lt_frame_idx = read_ue(mmco_br);
                 mark_curr_pic_lt(ctx->dpb, lt_frame_idx);
             }
         } while (mmco != 0);
@@ -902,7 +900,7 @@ void dpb_flush(DPB *dpb) {
 void dpb_free(DPB *dpb) {
     for (int i = 0; i < dpb->slots_size; i++) {
         if (dpb->slots[i] != NULL) {
-            pic_pool_getback(dpb->slots[i], dpb->ctx->pool);
+            pic_pool_getback(dpb->slots[i], dpb->ctx->pool, dpb->ctx);
         }
     }
     free(dpb->slots);
