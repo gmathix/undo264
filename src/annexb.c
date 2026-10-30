@@ -115,7 +115,9 @@ void find_next_nal_unit(BitReader *br, Undo264Context *ctx) {
     }
 
     size_t size = 0;
-    while (br->byte_pos < br->size-1 && bitreader_peek_bits(br,24) != 1 && bitreader_peek_bits(br, 32) != 1) {
+    while ((br->byte_pos + (br->cache_pos >> 3)) <  br->size && // reach end of buffer
+          ((br->byte_pos + (br->cache_pos >> 3)) >= br->size-3 || bitreader_peek_bits(br,24) != 1) && // find next 00 00 01 start code
+          ((br->byte_pos + (br->cache_pos >> 3)) >= br->size-4 || bitreader_peek_bits(br,32) != 1)) { // find next 00 00 00 01 start code
         size++;
         bitreader_skip_bits(br, 8);
     }
@@ -125,14 +127,17 @@ void find_next_nal_unit(BitReader *br, Undo264Context *ctx) {
     uint8_t header = bitreader_peek_bits(br, 8);
     size_t rbsp_size = 0;
     nal->data = nal_to_rbsp(
-        br->data + br->byte_pos + 1, // remove header byte from payload
-        size, &rbsp_size, ctx);
+        br->data + (br->byte_pos + (br->cache_pos >> 3)) + 1, // remove header byte from payload
+        size-1, &rbsp_size, ctx);
 
     nal->size = rbsp_size;
     nal->ref_idc = (header >> 5) & 0x03;
     nal->type = header & 0x1F;
 
-    bitreader_skip_bits(br, _min((br->size - br->byte_pos) * 8, size * 8));
+    // bitreader_skip_bits(br, _min((br->size - br->byte_pos) * 8, size * 8));
+    br->byte_pos += size + (br->cache_pos >> 3);
+    br->cache_pos = 0;
+    bitreader_refill(br);
 }
 
 uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size, Undo264Context *ctx) {

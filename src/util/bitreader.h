@@ -66,19 +66,21 @@ static always_inline int bitreader_refill(BitReader *br) {
     return i;
 }
 
+static always_inline size_t bitreader_bits_remaining(BitReader *br) {
+    if (br->byte_pos >= br->size) return 0;
+    return (br->size - br->byte_pos) * 8 + br->cache_pos;
+}
+
 /*
  * guaranteed to always have enough bits in the cache, since the cache it 64 bits and peek_bits returns 32 bits max
  */
 static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
     if (n < 1 || n > 32) return 0;
+    size_t rem = bitreader_bits_remaining(br);
+    if (n > rem) n = rem;
 
     // shift left part of bits_cache to the right 32 bits, then mask the number of bits to peek
     return (uint32_t) (br->bits_cache >> (64 - br->cache_pos - n)) & (((uint64_t)1<<n) - 1);
-}
-
-static always_inline size_t bitreader_bits_remaining(BitReader *br) {
-    if (br->byte_pos >= br->size) return 0;
-    return (br->size - br->byte_pos) * 8 + br->cache_pos;
 }
 
 
