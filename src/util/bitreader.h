@@ -15,6 +15,7 @@ typedef struct BitReader {
     const uint8_t *data; // pointer to the byte buffer
     size_t         size; // total bytes in buffer
     size_t         byte_pos;
+    size_t         bits_remaining;
     uint64_t       bits_cache;
     size_t         cache_pos;
 } BitReader ;
@@ -68,7 +69,7 @@ static always_inline int bitreader_refill(BitReader *br) {
 
 static always_inline size_t bitreader_bits_remaining(BitReader *br) {
     if (br->byte_pos >= br->size) return 0;
-    return (br->size - br->byte_pos) * 8 + br->cache_pos;
+    return br->bits_remaining;
 }
 
 /*
@@ -76,8 +77,7 @@ static always_inline size_t bitreader_bits_remaining(BitReader *br) {
  */
 static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
     if (n < 1 || n > 32) return 0;
-    size_t rem = bitreader_bits_remaining(br);
-    if (n > rem) n = rem;
+    if (n > br->bits_remaining) n = br->bits_remaining;
 
     // shift left part of bits_cache to the right 32 bits, then mask the number of bits to peek
     return (uint32_t) (br->bits_cache >> (64 - br->cache_pos - n)) & (((uint64_t)1<<n) - 1);
@@ -86,6 +86,7 @@ static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
 
 static always_inline void bitreader_skip_bits(BitReader *br, size_t n) {
     br->cache_pos += n;
+    br->bits_remaining -= n;
 
     if (br->cache_pos >= 32) {
         br->byte_pos += 4;
@@ -108,6 +109,7 @@ static always_inline void bitreader_rewind(BitReader *br, size_t n) {
 
     size_t new_pos_bits = before - n;
     br->byte_pos = new_pos_bits / 8;
+    br->bits_remaining += n;
 
     bitreader_refill(br);
 
@@ -151,6 +153,7 @@ static always_inline bool more_rbsp_data(BitReader *br) {
 static always_inline void bitreader_init(struct BitReader *br, const uint8_t *data, size_t size) {
     br->data = data;
     br->size = size;
+    br->bits_remaining = size * 8;
     br->byte_pos = 0;
     br->cache_pos = 0;
     br->bits_cache = 0;
