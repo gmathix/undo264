@@ -78,8 +78,6 @@ int decode_sps(Undo264Context *ctx) {
 
     infer_flat_matrices(true, ctx);
 
-    /* not going to handle these for now. focusing on Baseline + Main profiles
-     * probably won't even ever work on these */
     if (sps->profile_idc == PROFILE_HIGH ||
         sps->profile_idc == PROFILE_HIGH_10 ||
         sps->profile_idc == PROFILE_HIGH_422 ||
@@ -93,7 +91,7 @@ int decode_sps(Undo264Context *ctx) {
         sps->chroma_format_idc = read_ue(br);
         if (sps->chroma_format_idc == 3) {
             sps->separate_color_plane_flag = read_u(br, 1);
-            /// TODO: something
+            // not supported by undo264 anyway
         }
 
         sps->bit_depth_luma_minus8 = read_ue(br);
@@ -147,6 +145,9 @@ int decode_sps(Undo264Context *ctx) {
     if (sps->poc_type == 0) {
         sps->log2_max_poc_lsb_minus4 = read_ue(br);
     } else if (sps->poc_type == 1) {
+        DEC_FAIL(ctx, UNDO_ERR_UNSUPPORTED, "POC type 1 not supported\n");
+
+        // leaving them in case I decide to implement POC 1 later
         sps->delta_pic_order_always_zero_flag      = read_u(br, 1);
         sps->offset_for_non_ref_pic                = read_se(br);
         sps->offset_for_top_to_bottom_field        = read_se(br);
@@ -156,6 +157,7 @@ int decode_sps(Undo264Context *ctx) {
         for (int i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
             sps->offset_for_ref_frame[i] = read_se(br);
         }
+
     } else if (sps->poc_type != 2) {
         DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid poc type: %d\n", sps->poc_type);
     }

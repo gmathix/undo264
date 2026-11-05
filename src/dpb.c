@@ -157,10 +157,9 @@ void derive_poc(DPB *dpb, Picture *pic) {
          * most encoders found that the bits saved weren't worth the complexity
          * in fact, many hardware decoders have had bugs specifically in their type 1 implementation,
          * just because there is so little content out there to test with
+         *
+         * this path shouldn't be reached anyway, as undo264 return UNDO_UNSUPPORTED error in SPS parsing on POC type 1
          */
-
-        DEC_FAIL(dpb->ctx, UNDO_ERR_UNSUPPORTED, "POC type 1 not supported");
-
     } else if (pic->sh->sps->poc_type == 2) {
         /* commonly used (specific use cases)
          * it's extremely efficient because it requires almost no extra bits in the slice header,
