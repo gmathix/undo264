@@ -38,7 +38,7 @@ SANITIZERS="${SANITIZERS:-address undefined memory}"  # -s
 MAX_TIME="${MAX_TIME:-0}"                          # -t : seconds per configuration
 MAX_RUNS="${MAX_RUNS:-0}"                          # -r : executions per configuration
 JOBS="${JOBS:-1}"                                  # -j : parallel fork workers
-MAX_LEN="${MAX_LEN:-1048576}"                      # bytes
+MAX_LEN="${MAX_LEN:-65536}"                      # bytes
 TIMEOUT="${TIMEOUT:-5}"                            # seconds before an input counts as a hang
 RSS_MB="${RSS_MB:-2048}"                           # per-process memory limit
 SIG_FRAMES="${SIG_FRAMES:-0}"                      # 0 = whole stack, N = top N project frames
@@ -53,6 +53,8 @@ MINIMIZE="${MINIMIZE:-0}"                          # -m : minimise each group's 
 REPORT_ONLY="${REPORT_ONLY:-0}"                    # -R : re-triage the latest run, no fuzzing
 SEED_CHECK="${SEED_CHECK:-1}"                      # -P sets this to 0 (skip the seed pre-check)
 MINIMIZE_RUNS="${MINIMIZE_RUNS:-5000}"
+AUTO_MAX_LEN="${AUTO_MAX_LEN:-0}"                  # 1 = raise MAX_LEN to the largest seed (no seed truncation)
+PROJECT_ROOT_ALT="${PROJECT_ROOT_ALT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"  # logical path, tried too
 
 usage() {
 cat <<EOF
@@ -71,7 +73,7 @@ Usage: $0 [options]
   -P        skip the seed pre-check (seeds that crash are normally moved out of the corpus)
   -m        minimise one representative per crash group
   -h        this help
-Env overrides: MAX_LEN TIMEOUT RSS_MB SIG_FRAMES SIG_TOP_ONLY CC_BIN PROJECT_ROOT WORK_ROOT CRASH_ROOT
+Env overrides: MAX_LEN AUTO_MAX_LEN TIMEOUT RSS_MB SIG_FRAMES SIG_TOP_ONLY CC_BIN PROJECT_ROOT WORK_ROOT CRASH_ROOT
 EOF
 }
 
@@ -91,9 +93,13 @@ if [[ "$MAX_TIME" == 0 && "$MAX_RUNS" == 0 ]]; then MAX_TIME=600; fi
 log() { printf '\033[1;34m[fuzz]\033[0m %s\n' "$*" >&2; }   # stderr: build_cfg's stdout is captured
 die() { printf '\033[1;31m[fuzz] error:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[[ -d "$SEEDS_DIR" ]] || die "seeds directory not found: $SEEDS_DIR"
+(( REPORT_ONLY )) || [[ -d "$SEEDS_DIR" ]] || die "seeds directory not found: $SEEDS_DIR"
 command -v "$CC_BIN" >/dev/null || die "compiler '$CC_BIN' not found (libFuzzer needs clang)"
 if command -v sha1sum >/dev/null; then SHA=sha1sum; else SHA="shasum -a 1"; fi
+# Every replay is wrapped in a timeout; without it each replay would exit 127 and look like a crash.
+TIMEOUT_BIN=""
+for c in timeout gtimeout; do command -v "$c" >/dev/null 2>&1 && { TIMEOUT_BIN=$c; break; }; done
+[[ -n "$TIMEOUT_BIN" ]] || die "GNU timeout not found (apt install coreutils / brew install coreutils)"
 
 # ---- Symbolizer: without it stack traces have no file:line, so nothing can be grouped
 SYMBOLIZER=""
@@ -111,7 +117,11 @@ export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=1:symbol
 export MSAN_OPTIONS="${MSAN_OPTIONS:-halt_on_error=1:symbolize=1}"
 
 INTERRUPTED=0
-trap 'INTERRUPTED=1' INT
+STOPFILE=""      # per-configuration flag file: plain-mode workers (subshells) stop restarting when it exists
+FORK_RC=0        # exit code of the last fork-mode libFuzzer parent
+WARNED_PATH=0
+on_interrupt() { INTERRUPTED=1; [[ -n "$STOPFILE" ]] && : > "$STOPFILE"; }
+trap on_interrupt INT
 
 # ------------------------------------------------------------------------------
 # build O S  -> echoes the path of the binary. The flags live in build_fuzzers.sh (single
@@ -140,9 +150,20 @@ first_stack_block() {
 normalize_stack() {
   local raw=$1 out
   out=$(sed -E 's/^[[:space:]]*#[0-9]+ 0x[0-9a-f]+ in //' "$raw" \
-        | awk -v root="$PROJECT_ROOT/" 'index($0, " " root) { sub(root, ""); print }' \
+        | ROOT="$PROJECT_ROOT/" ROOT_ALT="$PROJECT_ROOT_ALT/" awk '
+            # literal (non-regex) match; paths go through ENVIRON so backslashes are not interpreted
+            BEGIN { r1 = ENVIRON["ROOT"]; r2 = ENVIRON["ROOT_ALT"] }
+            { for (k = 1; k <= 2; k++) {
+                r = (k == 1 ? r1 : r2); if (r == "/") continue
+                i = index($0, " " r)
+                if (i) { print substr($0, 1, i) substr($0, i + 1 + length(r)); next }
+              } }' \
         | sed -E 's/:([0-9]+):[0-9]+$/:\1/')
   if [[ -z "$out" ]]; then   # no frame in our code: fall back to module+symbol, addresses stripped
+    if (( ! WARNED_PATH )); then
+      WARNED_PATH=1
+      log "WARNING: no stack frame under $PROJECT_ROOT in $(basename "$raw"): grouping falls back to module+symbol (coarse). Check PROJECT_ROOT."
+    fi
     out=$(sed -E 's/^[[:space:]]*#[0-9]+ 0x[0-9a-f]+ //; s/0x[0-9a-f]+//g' "$raw")
   fi
   # crash inside a low-level helper (e.g. bitreader_refill_half in src/util/bitreader.h):
@@ -161,7 +182,9 @@ kind_of() {
     echo "UBSan: ${k#runtime error: }" | sed -E 's/[0-9]+/N/g' | cut -c1-80; return; fi
   if grep -q 'ERROR: LeakSanitizer' "$l"; then echo "LSan: memory-leak"; return; fi
   if grep -q -E "Assertion .* failed" "$l"; then echo "assertion-failure"; return; fi
-  if k=$(grep -m1 -oE 'ERROR: libFuzzer: [a-z -]+' "$l"); then k=${k#ERROR: libFuzzer: }; echo "libFuzzer: ${k%% after*}"; return; fi
+  if k=$(grep -m1 -oE 'ERROR: libFuzzer: [a-z -]+' "$l"); then
+    k=${k#ERROR: libFuzzer: }; k=${k%% after*}; k=${k%"${k##*[![:space:]]}"}   # strip trailing blanks
+    echo "libFuzzer: $k"; return; fi
   echo "unknown"
 }
 
@@ -179,7 +202,7 @@ analyze_crashes() {
   : > "$rdir/nonreproducible.txt"
   for f in "${files[@]+"${files[@]}"}"; do
     local name; name=$(basename "$f")
-    timeout $((TIMEOUT + 30)) "$bin" -timeout="$TIMEOUT" -rss_limit_mb="$RSS_MB" "$f" >"$rdir/$name.log" 2>&1
+    "$TIMEOUT_BIN" $((TIMEOUT + 30)) "$bin" -timeout="$TIMEOUT" -rss_limit_mb="$RSS_MB" "$f" >"$rdir/$name.log" 2>&1
     local rc=$?
     if (( rc == 0 )); then echo "$name" >> "$rdir/nonreproducible.txt"; nonrepro=$((nonrepro+1)); continue; fi
     first_stack_block "$rdir/$name.log" > "$rdir/$name.rawstack"
@@ -217,11 +240,11 @@ analyze_crashes() {
     [[ -z "${sig:-}" ]] && continue
     i=$((i+1))
     local rep kinds top members
-    rep=$(awk -F'\t' -v s="$sig" '$1==s {print $2"\t"$3}' "$rdir/index.tsv" | sort -n | head -1 | cut -f2)
-    kinds=$(awk -F'\t' -v s="$sig" '$1==s {print $4}' "$rdir/index.tsv" | sort -u | paste -sd';' -)
-    top=$(awk -F'\t' -v s="$sig" '$1==s {print $5; exit}' "$rdir/index.tsv")
-    members=$(awk -F'\t' -v s="$sig" '$1==s {print $3}' "$rdir/index.tsv")
-    local repsize; repsize=$(awk -F'\t' -v s="$sig" -v n="$rep" '$1==s && $3==n {print $2}' "$rdir/index.tsv")
+    rep=$(awk -F'\t' -v s="$sig" '($1 "")==(s "") {print $2"\t"$3}' "$rdir/index.tsv" | sort -n | head -1 | cut -f2)
+    kinds=$(awk -F'\t' -v s="$sig" '($1 "")==(s "") {print $4}' "$rdir/index.tsv" | sort -u | paste -sd';' -)
+    top=$(awk -F'\t' -v s="$sig" '($1 "")==(s "") {print $5; exit}' "$rdir/index.tsv")
+    members=$(awk -F'\t' -v s="$sig" '($1 "")==(s "") {print $3}' "$rdir/index.tsv")
+    local repsize; repsize=$(awk -F'\t' -v s="$sig" -v n="$rep" '($1 "")==(s "") && ($3 "")==(n "") {print $2}' "$rdir/index.tsv")
     local minfile=""
     if (( MINIMIZE )); then
       minfile="$rdir/$sig.min"
@@ -231,13 +254,14 @@ analyze_crashes() {
       [[ -s "$minfile" ]] || minfile=""
     fi
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$sig" "$count" "$kinds" "$top" "$rep" "$repsize" >> "$cdir/report.tsv"
-    echo "| $i | \`$sig\` | $count | $kinds | \`$top\` | \`$rep\` ($repsize B) |" >> "$cdir/report.md"
+    local tk=${kinds//|/\\|} tt=${top//|/\\|}     # a '|' would break the Markdown table
+    echo "| $i | \`$sig\` | $count | $tk | \`$tt\` | \`$rep\` ($repsize B) |" >> "$cdir/report.md"
     {
       echo "### Crash $i — \`$sig\`"
       echo
       echo "- Kind(s): $kinds"
       echo "- Inputs with this stack ($count): $(echo "$members" | sed 's/.*/`&`/' | paste -sd' ' -)"
-      echo "- Reproduce: \`${bin#$ROOT_DIR/} crashes/O${o}/${san}/${run}/${rep}\`"
+      echo "- Reproduce (from the repo root): \`${bin#$ROOT_DIR/} ${cdir#$ROOT_DIR/}/${rep}\`"
       [[ -n "$minfile" ]] && echo "- Minimised input: \`${minfile#$SCRIPT_DIR/}\`"
       echo
       echo "Stack (project frames only):"
@@ -275,16 +299,31 @@ analyze_crashes() {
 # the others are copied to crashes/.../seeds_ok/, which is what the fuzzer is given.
 # Echoes the directory to use as seed corpus.
 preflight_seeds() { # bin cdir
-  local bin=$1 cdir=$2 good="$2/seeds_ok" f n=0 bad=0 rel flat
-  mkdir -p "$good"
+  local bin=$1 cdir=$2 good="$2/seeds_ok" f n=0 bad=0 big=0 rel flat sz rc slog why
+  mkdir -p "$good" "$cdir/seedcheck"
   while IFS= read -r f; do
     rel=${f#"$SEEDS_DIR"/}; flat=${rel//\//__}
+    sz=$(wc -c < "$f" | tr -d ' ')
+    (( sz > MAX_LEN )) && big=$((big + 1))
     head -c "$MAX_LEN" "$f" > "$good/$flat"
     n=$((n + 1))
-    if ! timeout $((TIMEOUT + 30)) "$bin" -timeout="$TIMEOUT" -rss_limit_mb="$RSS_MB" "$good/$flat" >/dev/null 2>&1; then
+    slog="$cdir/seedcheck/$flat.log"
+    "$TIMEOUT_BIN" $((TIMEOUT + 30)) "$bin" -timeout="$TIMEOUT" -rss_limit_mb="$RSS_MB" "$good/$flat" >"$slog" 2>&1
+    rc=$?
+    if (( rc != 0 )); then
       mv "$good/$flat" "$cdir/crash-seed-$flat"; bad=$((bad + 1))
+      why=$(kind_of "$slog")
+      (( rc == 124 )) && why="hang (killed by the timeout wrapper)"
+      (( sz > MAX_LEN )) && why+=", seed truncated from $sz to $MAX_LEN bytes"
+      log "  seed $rel: exit code $rc, $why (log: ${slog#$SCRIPT_DIR/})"
+    else
+      rm -f "$slog"
     fi
   done < <(find "$SEEDS_DIR" -type f | sort)
+  if (( big > 0 )); then
+    log "WARNING: $big seed(s) are larger than MAX_LEN=$MAX_LEN and are truncated, exactly as libFuzzer does."
+    log "         A truncated stream is not the file you replay elsewhere: raise MAX_LEN or set AUTO_MAX_LEN=1."
+  fi
   log "seed check: $n seed(s), $bad crash(es)/hang(s) -> saved as crash-seed-* ; $((n - bad)) usable"
   echo "$good"
 }
@@ -305,18 +344,20 @@ session_fork() { # bin corpus cdir left
   (( $4 > 0 ))       && args+=(-max_total_time="$4")
   (( MAX_RUNS > 0 )) && args+=(-runs="$MAX_RUNS")
   "$1" "${args[@]}" 2>&1 | tee -a "$3/fuzz.log" | grep -E '^(#[0-9]+|INFO: (fuzzed|exiting))' | tail -n 3
+  FORK_RC=${PIPESTATUS[0]}
 }
 
 # Plain mode: $JOBS independent libFuzzer processes on ONE corpus dir (libFuzzer reloads the
 # corpus periodically, so they see each other's finds). A process ends at its first crash;
 # its loop restarts it until the deadline ($4 = value of $SECONDS at which to stop).
 session_plain() { # bin corpus cdir deadline
-  local bin=$1 corpus=$2 cdir=$3 end=$4 k
+  local bin=$1 corpus=$2 cdir=$3 end=$4 k stop=$STOPFILE
   local -a pids=() base=(); while IFS= read -r a; do base+=("$a"); done < <(base_args "$corpus" "$cdir")
   for (( k=1; k<=JOBS; k++ )); do
     (
       restarts=0
       while :; do
+        [[ -e "$stop" ]] && break
         args=("${base[@]}")
         if (( MAX_TIME > 0 )); then
           left=$(( end - SECONDS )); (( left < 3 )) && break
@@ -324,12 +365,22 @@ session_plain() { # bin corpus cdir deadline
         elif (( restarts > 0 )); then break; fi
         (( MAX_RUNS > 0 )) && args+=(-runs=$(( (MAX_RUNS + JOBS - 1) / JOBS )))
         "$bin" "${args[@]}" >>"$cdir/fuzz.worker$k.log" 2>&1
+        rc=$?
+        (( rc == 72 || rc == 130 )) && break      # libFuzzer's exit code after SIGINT
+        [[ -e "$stop" ]] && break                 # Ctrl-C reached the main script
         restarts=$((restarts + 1)); (( restarts >= MAX_RESTARTS )) && break
       done
     ) &
     pids+=($!)
   done
-  wait "${pids[@]}"
+  # `wait` returns early when Ctrl-C hits the trap: keep waiting until every worker is really gone,
+  # otherwise triage would start while libFuzzer processes are still writing artifacts
+  local alive p
+  while (( ${#pids[@]} > 0 )); do
+    wait "${pids[@]}" 2>/dev/null
+    alive=(); for p in "${pids[@]}"; do kill -0 "$p" 2>/dev/null && alive+=("$p"); done
+    pids=("${alive[@]+"${alive[@]}"}")
+  done
 }
 
 # Fuzz one configuration. Fork mode is used first; if the fork *parent* keeps dying (see
@@ -338,8 +389,10 @@ fuzz_config() { # bin corpus cdir
   local bin=$1 corpus=$2 cdir=$3 mode=$FUZZ_MODE
   local end=$(( SECONDS + MAX_TIME )) restarts=0 quick_fail=0
   : > "$cdir/fuzz.log"
+  STOPFILE="$cdir/.stop"; rm -f "$STOPFILE"
   if [[ $mode == fork ]]; then
     while :; do
+      (( INTERRUPTED )) && break
       local left=0
       if (( MAX_TIME > 0 )); then left=$(( end - SECONDS )); (( left < 3 )) && break
       elif (( restarts > 0 )); then break; fi
@@ -348,13 +401,24 @@ fuzz_config() { # bin corpus cdir
       session_fork "$bin" "$corpus" "$cdir" "$left"
       restarts=$((restarts + 1))
       # A zero-byte artifact is written by libFuzzer's own crash handler when the fork PARENT
-      # dies (SHA-1 da39a3ee... = empty input). It is not a decoder bug: discard it.
-      local bad; bad=$(find "$cdir" -maxdepth 1 -type f -size 0 \( -name 'crash-*' -o -name 'timeout-*' -o -name 'oom-*' -o -name 'leak-*' \) | wc -l | tr -d ' ')
-      find "$cdir" -maxdepth 1 -type f -size 0 \( -name 'crash-*' -o -name 'timeout-*' -o -name 'oom-*' -o -name 'leak-*' \) -delete
+      # dies (SHA-1 da39a3ee... = empty input). Replay it: if the empty input really fails the
+      # decoder it is a finding and is kept; otherwise it is the parent's death artifact: discard it.
+      local bad=0 zf
+      while IFS= read -r zf; do
+        if "$TIMEOUT_BIN" $((TIMEOUT + 30)) "$bin" -timeout="$TIMEOUT" -rss_limit_mb="$RSS_MB" "$zf" >/dev/null 2>&1; then
+          rm -f "$zf"; bad=$((bad + 1))
+        else
+          log "the empty input really fails the decoder: keeping $(basename "$zf") as a finding"
+        fi
+      done < <(find "$cdir" -maxdepth 1 -type f -size 0 \( -name 'crash-*' -o -name 'timeout-*' -o -name 'oom-*' -o -name 'leak-*' \))
+      (( INTERRUPTED )) && break
       local ran=$(( SECONDS - t0 ))
-      if (( bad > 0 )) || (( MAX_TIME > 0 && ran < left - 5 )); then
+      # -t and -r both given: the -runs budget ended this session normally, nothing more to do
+      (( MAX_RUNS > 0 && FORK_RC == 0 && bad == 0 )) && break
+      # abnormal end = parent died / bad option (non-zero exit code), or (no -r) a suspiciously short session
+      if (( bad > 0 )) || (( FORK_RC != 0 )) || (( MAX_RUNS == 0 && MAX_TIME > 0 && ran < left - 5 )); then
         quick_fail=$((quick_fail + 1))
-        log "WARNING: libFuzzer's fork parent died after ${ran}s (internal libFuzzer fault, not the decoder); see $cdir/fuzz.log"
+        log "WARNING: libFuzzer's fork parent stopped abnormally after ${ran}s (exit code ${FORK_RC}; internal libFuzzer fault or bad option, not the decoder); see $cdir/fuzz.log"
         if (( quick_fail >= 2 || MAX_TIME == 0 )); then
           log "falling back to plain mode for the rest of this configuration"; mode=plain; break
         fi
@@ -380,13 +444,27 @@ fuzz_config() { # bin corpus cdir
 # Main loop
 # ------------------------------------------------------------------------------
 declare -a SUMMARY=()
+
+# Build every configuration up front: a broken last configuration must not surface hours into the campaign.
+if (( DO_BUILD )); then
+  log "building all configurations (O: $OPT_LEVELS / sanitizers: $SANITIZERS)"
+  CC_BIN="$CC_BIN" BUILD_ROOT="$BUILD_ROOT" "$SCRIPT_DIR/build_fuzzers.sh" -q -o "$OPT_LEVELS" -s "$SANITIZERS" >&2 \
+    || die "build failed (see ${BUILD_ROOT#$ROOT_DIR/}/*.log)"
+  DO_BUILD=0   # build_cfg now only checks that the binaries exist
+fi
+
+if (( ! REPORT_ONLY && AUTO_MAX_LEN )); then
+  maxseed=0
+  while IFS= read -r f; do s=$(wc -c < "$f" | tr -d ' '); (( s > maxseed )) && maxseed=$s; done < <(find "$SEEDS_DIR" -type f)
+  if (( maxseed > MAX_LEN )); then log "AUTO_MAX_LEN: MAX_LEN $MAX_LEN -> $maxseed (largest seed)"; MAX_LEN=$maxseed; fi
+fi
 for o in $OPT_LEVELS; do
   for san in $SANITIZERS; do
     (( INTERRUPTED )) && { log "interrupted, skipping remaining configurations"; break 2; }
     bin=$(build_cfg "$o" "$san") || exit 1
 
     if (( REPORT_ONLY )); then
-      last=$(find "$CRASH_ROOT/O${o}/${san}" -mindepth 1 -maxdepth 1 -type d -name 'run_*' 2>/dev/null | sort -V | tail -1)
+      last=$(find "$CRASH_ROOT/O${o}/${san}" -mindepth 1 -maxdepth 1 -type d -name 'run_*' 2>/dev/null              | awk -F/ '{ split($NF, p, "_"); print p[2] "\t" $0 }' | sort -n | tail -1 | cut -f2)   # no GNU sort -V
       [[ -n "$last" ]] || { log "no run found for O${o}/${san}, skipping"; continue; }
       analyze_crashes "$bin" "$last" "$o" "$san" "$(basename "$last")"
       continue
