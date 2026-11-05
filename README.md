@@ -47,7 +47,7 @@ chmod +x download_vectors.sh && chmod +x conformance_test.sh
 # Robustness
 
 Undo264 is not hardened against malformed or malicious bitstreams, though I'm currently running libFuzzer on it,
-in order to find bugs and potential vulnerabilities (see Fuzzing section below).  
+in order to find bugs and potential vulnerabilities (see **Fuzzing** section below).  
 As this is more of an educational project rather than a decoder intended for production, I will not fix everything
 the fuzzer finds. Instead, I will fix and document a few vulnerabilities, again, for educational purposes.
 
@@ -174,7 +174,7 @@ cmake --install build/release --prefix /usr/local
 # Fuzzing
 
 There are numerous ways to fuzz video decoding software like undo264, so feel free to run your own fuzzing setup on it if you want to.
-Still, I wrote fuzzing workflow scripts with using AI to automate building and running different fuzz targets, 
+Still, I wrote fuzzing workflow scripts using AI to automate building and running different fuzz targets, 
 as well as automatically generate bug category reports to make it easier to sort, replay, and fix bugs. 
 
 Example commands given below should be run in the fuzzing/ directory.
