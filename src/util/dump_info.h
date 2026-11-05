@@ -47,7 +47,7 @@ typedef struct PictureJSONPayload {
 } PictureJSONPayload;
 
 
-PictureJSONPayload *make_picture_json_payload(void);
+PictureJSONPayload *make_picture_json_payload(Undo264Context *ctx);
 void reset_picture_json_payload(PictureJSONPayload *payload);
 void free_picture_json_payload(PictureJSONPayload *payload);
 

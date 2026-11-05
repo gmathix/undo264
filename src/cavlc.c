@@ -228,51 +228,51 @@ static const MultiVLC *nc_to_table[19] = {
 
 
 
-void init_vlc_tables(void) {
-    coeff_token_vlc = make_mutli_vlc(4);
+void init_vlc_tables(Undo264Context *ctx) {
+    coeff_token_vlc = make_mutli_vlc(4, ctx);
     for (int i = 0; i < 4; i++) {
         set_vlc_table(&coeff_token_vlc, i,
             coeff_token_lengths[i], coeff_token_bits[i],
-            62, MAX_COEFF_TOKEN_BITS);
+            62, MAX_COEFF_TOKEN_BITS, ctx);
     }
 
 
-    total_zeros_vlc = make_mutli_vlc(15);
+    total_zeros_vlc = make_mutli_vlc(15, ctx);
     for (int i = 0; i < 15; i++) {
         set_vlc_table(&total_zeros_vlc, i,
             total_zeros_lengths[i], total_zeros_bits[i],
-            16, MAX_TOTAL_ZEROS_BITS);
+            16, MAX_TOTAL_ZEROS_BITS, ctx);
     }
 
-    total_zeros_cr420_vlc = make_mutli_vlc(3);
+    total_zeros_cr420_vlc = make_mutli_vlc(3, ctx);
     for (int i = 0; i < 3; i++) {
         set_vlc_table(&total_zeros_cr420_vlc, i,
             total_zeros_cr420_lengths[i], total_zeros_cr420_bits[i],
-            4, MAX_TOTAL_ZEROS_BITS);
+            4, MAX_TOTAL_ZEROS_BITS, ctx);
     }
 
-    total_zeros_cr422_vlc = make_mutli_vlc(7);
+    total_zeros_cr422_vlc = make_mutli_vlc(7, ctx);
     for (int i = 0; i < 7; i++) {
         set_vlc_table(&total_zeros_cr422_vlc, i,
             total_zeros_cr422_lengths[i], total_zeros_cr422_bits[i],
-            8, MAX_TOTAL_ZEROS_BITS);
+            8, MAX_TOTAL_ZEROS_BITS, ctx);
     }
 
-    coeff_token_cr420_vlc = make_mutli_vlc(1);
+    coeff_token_cr420_vlc = make_mutli_vlc(1, ctx);
     set_vlc_table(&coeff_token_cr420_vlc, 0,
         coeff_token_cr420_lengths, coeff_token_cr420_bits,
-        14, MAX_COEFF_TOKEN_BITS);
+        14, MAX_COEFF_TOKEN_BITS, ctx);
 
-    coeff_token_cr422_vlc = make_mutli_vlc(1);
+    coeff_token_cr422_vlc = make_mutli_vlc(1, ctx);
     set_vlc_table(&coeff_token_cr422_vlc, 0,
         coeff_token_cr422_lengths, coeff_token_cr422_bits,
-        30, MAX_COEFF_TOKEN_BITS);
+        30, MAX_COEFF_TOKEN_BITS, ctx);
 
-    run_before_vlc = make_mutli_vlc(7);
+    run_before_vlc = make_mutli_vlc(7, ctx);
     for (int i = 0; i < 7; i++) {
         set_vlc_table(&run_before_vlc, i,
             run_before_lengths[i], run_before_bits[i],
-            15, MAX_RUN_BEFORE_BITS);
+            15, MAX_RUN_BEFORE_BITS, ctx);
     }
 
 
@@ -292,11 +292,10 @@ void init_vlc_tables(void) {
 /* 7.3.5.3.2 */
 void residual_block_cavlc(Macroblock *mb, int blkIdx, int iCbCr, int bt, int16_t *coeffLevel,
                           int startIdx, int endIdx, int maxNumCoeff, bool isLuma,
-
     SliceHeader *sh, const Undo264Context *ctx) {
 
     if (!vlc_initialized) {
-        init_vlc_tables();
+        init_vlc_tables(ctx);
     }
 
     memset(coeffLevel, 0, maxNumCoeff * sizeof(int16_t));

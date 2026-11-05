@@ -26,13 +26,8 @@ typedef struct CabacContext {
 
 
 
-static CabacContext *make_cactx(void) {
-    CabacContext *cactx = calloc(1, sizeof(CabacContext));
-    return cactx;
-}
-static void free_cactx(CabacContext *cactx) {
-    free(cactx);
-}
+CabacContext *make_cactx(Undo264Context *ctx);
+void free_cactx(CabacContext *cactx);
 
 
 

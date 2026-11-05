@@ -9,7 +9,10 @@
 
 #include "ps.h"
 
+#include <unistd.h>
+
 #include "dequant.h"
+#include "error.h"
 #include "util/expgolomb.h"
 
 
@@ -34,7 +37,7 @@ int decode_sps(Undo264Context *ctx) {
     ParamSets *ps = ctx->ps;
 
 
-    SPS *sps = calloc(1, sizeof(SPS));
+    SPS *sps = calloc_check(1, sizeof(SPS), ctx);
 
 
     int profile_idc = read_u(br, 8);
@@ -51,31 +54,30 @@ int decode_sps(Undo264Context *ctx) {
     sps->level_idc = read_u(br, 8);
 
 
-    uint32_t sps_id = read_ue(br);
-    if (sps_id > MAX_SPS_COUNT) {
-        printf("sps id %u out of range, max is %d", sps_id, MAX_SPS_COUNT);
-        return -1;
+    sps->sps_id = read_ue(br);
+    if (sps->sps_id >= MAX_SPS_COUNT) {
+        free(sps);
+        DEC_FAIL(ctx, UNDO_ERR_BITSTREAM,
+            "sps_id %u out of range, max is %d", sps->sps_id, MAX_SPS_COUNT);
     }
 
-
-    if (profile_idc != PROFILE_BASELINE &&
-        profile_idc != PROFILE_MAIN &&
-        profile_idc != PROFILE_EXTENDED &&
-        profile_idc != PROFILE_HIGH) {
-
-        printf("profile_idc %s not supported, exiting.\n", profile_to_string(profile_idc));
-        exit(67);
-    }
+    free(ps->sps_list[sps->sps_id]);
+    ps->sps_list[sps->sps_id] = sps;
+    ps->sps = sps;
 
 
-    sps->sps_id = sps_id;
+    DEC_CHECK(ctx,
+        (profile_idc == PROFILE_BASELINE || profile_idc == PROFILE_MAIN ||
+         profile_idc == PROFILE_EXTENDED || profile_idc == PROFILE_HIGH),
+         UNDO_ERR_UNSUPPORTED,
+         "profile_idc %d (%s) is not supported", profile_idc, profile_to_string(profile_idc));
+
+
     sps->profile_idc = profile_idc;
 
 
     infer_flat_matrices(true, ctx);
 
-    /* not going to handle these for now. focusing on Baseline + Main profiles
-     * probably won't even ever work on these */
     if (sps->profile_idc == PROFILE_HIGH ||
         sps->profile_idc == PROFILE_HIGH_10 ||
         sps->profile_idc == PROFILE_HIGH_422 ||
@@ -89,7 +91,7 @@ int decode_sps(Undo264Context *ctx) {
         sps->chroma_format_idc = read_ue(br);
         if (sps->chroma_format_idc == 3) {
             sps->separate_color_plane_flag = read_u(br, 1);
-            /// TODO: something
+            // not supported by undo264 anyway
         }
 
         sps->bit_depth_luma_minus8 = read_ue(br);
@@ -131,11 +133,11 @@ int decode_sps(Undo264Context *ctx) {
 
 
     sps->log2_max_frame_num_minus4 =read_ue(br);
-    if (sps->log2_max_frame_num_minus4 < MIN_LOG2_MAX_FRAME_NUM - 4 ||
-        sps->log2_max_frame_num_minus4 > MAX_LOG2_MAX_FRAME_NUM) {
-        printf("log2_max_frame_num_minus4 out of range(0-12): %d\n", sps->log2_max_frame_num_minus4);
-        return -1;
-    }
+    DEC_CHECK(ctx,
+        (sps->log2_max_frame_num_minus4 >= MIN_LOG2_MAX_FRAME_NUM - 4 &&
+        sps->log2_max_frame_num_minus4 <= MAX_LOG2_MAX_FRAME_NUM),
+        UNDO_ERR_BITSTREAM,
+        "log2_max_frame_num_minus4 out of range(0-12): %d\n", sps->log2_max_frame_num_minus4);
 
     ctx->maxFrameNum = 1 << (sps->log2_max_frame_num_minus4 + 4);
 
@@ -143,18 +145,21 @@ int decode_sps(Undo264Context *ctx) {
     if (sps->poc_type == 0) {
         sps->log2_max_poc_lsb_minus4 = read_ue(br);
     } else if (sps->poc_type == 1) {
+        DEC_FAIL(ctx, UNDO_ERR_UNSUPPORTED, "POC type 1 not supported\n");
+
+        // leaving them in case I decide to implement POC 1 later
         sps->delta_pic_order_always_zero_flag      = read_u(br, 1);
         sps->offset_for_non_ref_pic                = read_se(br);
         sps->offset_for_top_to_bottom_field        = read_se(br);
         sps->num_ref_frames_in_poc_cycle = read_ue(br);
 
-        sps->offset_for_ref_frame = malloc(sps->num_ref_frames_in_poc_cycle * sizeof(int32_t));
+        sps->offset_for_ref_frame = calloc_check(sps->num_ref_frames_in_poc_cycle, sizeof(int32_t), ctx);
         for (int i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
             sps->offset_for_ref_frame[i] = read_se(br);
         }
+
     } else if (sps->poc_type != 2) {
-        printf("invalid poc type : %d", sps->poc_type);
-        return -1;
+        DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid poc type: %d\n", sps->poc_type);
     }
 
 
@@ -167,12 +172,10 @@ int decode_sps(Undo264Context *ctx) {
     sps->pic_width_in_mbs_minus1 = read_ue(br);
     sps->pic_height_in_map_units_minus1 = read_ue(br);
     sps->frame_mbs_only_flag = read_u(br, 1);
-    if (!sps->frame_mbs_only_flag) {
-        sps->mb_aff_flag = read_u(br, 1);
 
-        fprintf(stderr, "field coding not supported, exiting.\n");
-        exit(67);
-    }
+    DEC_CHECK(ctx, sps->frame_mbs_only_flag, UNDO_ERR_UNSUPPORTED,
+        "field coding is not supported");
+
 
 
     sps->direct_8x8_inference_flag = read_u(br, 1);
@@ -198,8 +201,8 @@ int decode_sps(Undo264Context *ctx) {
             (crop_left + crop_right ) * step_x >= width ||
             (crop_top  + crop_bottom) * step_y >= height)
         {
-            printf("crop values invalid %d %d %d %d / %d %d\n", crop_left, crop_right, crop_top, crop_bottom, width, height);
-            return -1;
+            DEC_FAIL(ctx, UNDO_ERR_BITSTREAM,
+                "crop values invalid %d %d %d %d / %d %d\n", crop_left, crop_right, crop_top, crop_bottom, width, height);
         }
 
         sps->crop_left_offset   = crop_left * step_x;
@@ -233,11 +236,6 @@ int decode_sps(Undo264Context *ctx) {
     sps->pic_height_samples_l       = sps->pic_height_in_map_units * 16;
 
 
-
-    free(ps->sps_list[sps->sps_id]);
-    ps->sps_list[sps->sps_id] = sps;
-    ps->sps = sps;
-
     return 0;
 }
 
@@ -251,30 +249,31 @@ int decode_pps(Undo264Context *ctx) {
     BitReader *br = ctx->br;
     ParamSets *ps = ctx->ps;
 
-    PPS *pps = calloc(1, sizeof(PPS));
+    PPS *pps = calloc_check(1, sizeof(PPS), ctx);
 
 
     pps->pps_id = read_ue(br);
-    if (pps->pps_id > 255) {
-        printf("pps id out of range 0-255: %d\n", pps->pps_id);
-        return -1;
+    if (pps->pps_id > MAX_PPS_COUNT) {
+        free(pps);
+        DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "pps id out of range 0-%d: %d\n", MAX_PPS_COUNT, pps->pps_id);
     }
 
+    free(ps->pps_list[pps->pps_id]);
+    ps->pps_list[pps->pps_id] = pps;
+    ps->pps = pps;
+
+
     pps->sps_id = read_ue(br);
-    if (pps->sps_id >= MAX_SPS_COUNT || !ps->sps_list[pps->sps_id]) {
-        printf("invalid sps referenced : %d\n", pps->sps_id);
-        return -1;
-    }
+    DEC_CHECK(ctx, (pps->sps_id < MAX_SPS_COUNT && ps->sps_list[pps->sps_id]),
+        UNDO_ERR_BITSTREAM, "invalid sps referenced : %d\n", pps->sps_id);
 
     pps->cabac_flag = read_u(br, 1);
 
     pps->bottom_field_pic_order_in_frame_present_flag = read_u(br, 1);
     pps->num_slice_groups_minus1 = read_ue(br);
 
-    if (pps->num_slice_groups_minus1 > 0) {
-        printf("multiple slice groups not supported, exiting.\n");
-        exit(67);
-    }
+    DEC_CHECK(ctx, pps->num_slice_groups_minus1 == 0, UNDO_ERR_UNSUPPORTED,
+        "mutliple slice groups not supported");
 
 
 
@@ -336,11 +335,6 @@ int decode_pps(Undo264Context *ctx) {
     pps->num_ref_idx_l1_default_active = pps->num_ref_idx_l1_default_active_minus1 + 1;
     pps->pic_init_qp                   = pps->pic_init_qp_minus26 + 26;
     pps->pic_init_qs                   = pps->pic_init_qs_minus26 + 26;
-
-
-    free(ps->pps_list[pps->pps_id]);
-    ps->pps_list[pps->pps_id] = pps;
-    ps->pps = pps;
 
     return 0;
 }

@@ -3,6 +3,7 @@
 //
 
 // this file is compiled once for CAVLC and once for CABAC
+
 #include "util/mbutil.h"
 #include "util/sliceutil.h"
 #include "cavlc.h"
@@ -23,10 +24,6 @@
     #define CAFUNC(name, ...) name##_cavlc(__VA_ARGS__)
     #define CACALL(name, ...) name##_cavlc(__VA_ARGS__)
 #endif
-
-
-
-
 
 
 

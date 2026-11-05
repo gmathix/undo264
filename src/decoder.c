@@ -10,6 +10,7 @@
 
 #include "annexb.h"
 #include "dequant.h"
+#include "loopfilter.h"
 #include "dpb.h"
 #include "mb.h"
 #include "ps.h"
@@ -30,6 +31,8 @@
 
 #include <sys/stat.h>
 
+#include "error.h"
+
 #ifdef UNIX
 #include <unistd.h>
 #include <sys/mman.h>
@@ -43,9 +46,6 @@
 #include "slice.c"
 #undef CABAC
 #define CABAC 0
-
-
-#include "loopfilter.h"
 #include "slice.c"
 #undef CABAC
 
@@ -59,140 +59,82 @@ int mb_debug              = -1;
 int nb_frames_before_stop = -1;
 
 
+
+
+
+
+void *calloc_check(size_t nb, size_t size, Undo264Context *ctx) {
+    void *p = calloc(nb, size);
+    DEC_CHECK(ctx, p, UNDO_ERR_INTERNAL, "calloc failed");
+    return p;
+}
+
+
+
+
+Undo264Context *undo264_context_make(void) {
+    Undo264Context *ctx = calloc(1, sizeof(Undo264Context));
+    if (!ctx) {
+        perror("calloc");
+        return NULL;
+    }
+
+    ctx->out_path = "output.yuv";
+    ctx->info_out_path = "h264_info.json";
+
+    ctx->cli_options = calloc_check(1, sizeof(CLIOptions), ctx);
+
+    ctx->cli_options->dump_monochrome = false;
+    ctx->cli_options->dump_info       = false;
+
+    ctx->cli_options->deblock         = true;
+    ctx->cli_options->dump_frames     = true;
+    ctx->cli_options->use_simd        = true;
+    ctx->cli_options->use_sse         = true;
+    ctx->cli_options->use_avx2        = true;
+
+    return ctx;
+}
+
 void decoder_init(Undo264Context *ctx) {
-    /* opening input and output files */
-
-    FILE *test_input = fopen(ctx->in_path, "rb");
-    if (!test_input) {
-        fprintf(stderr, "input file not found: %s\n", ctx->in_path);
-        exit(1);
-    }
-    fclose(test_input);
-
-
-#ifdef UNIX
-    int fd = open(ctx->in_path, O_RDONLY);
-    if (fd < 0) {
-        perror("open");
-        exit(1);
-    }
-    struct stat st;
-    fstat(fd, &st);
-    if (st.st_size == 0) {
-        fprintf(stderr, "Opening input file : file is empty\n");
-        close(fd);
-        exit(1);
-    }
-    ctx->data_size = st.st_size;
-
-    ctx->data = mmap(NULL, ctx->data_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    close(fd);
-    if (ctx->data == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
-    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
-#endif
-
-#ifdef WIN32
-    TCHAR *lpFileName = TEXT(ctx->in_path);
-    HANDLE hFile;
-    HANDLE hMap;
-    LPVOID lpBasePtr;
-    LARGE_INTEGER liFileSize;
-
-    hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
-        exit(1);
-    }
-    if (!GetFileSizeEx(hFile, &liFileSize)) {
-        fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
-        CloseHandle(hFile);
-        exit(1);
-    }
-    if (liFileSize.QuadPart == 0) {
-        fprintf(stderr, "Opening input file : file is empty\n");
-        CloseHandle(hFile);
-        exit(1);
-    }
-
-    hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
-    if (hMap == 0) {
-        fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
-        CloseHandle(hFile);
-        exit(1);
-    }
-
-    lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
-    if (lpBasePtr == NULL) {
-        fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
-        CloseHandle(hFile);
-        CloseHandle(hMap);
-        exit(1);
-    }
-    ctx->data = lpBasePtr;
-    ctx->data_size = (size_t)liFileSize.QuadPart;
-    ctx->lpBasePtr = lpBasePtr;
-    ctx->hMap = hMap;
-    ctx->hFile = hFile;
-#endif
-
-
-
-    if (ctx->cli_options->dump_frames) {
-        ctx->out_file = fopen(ctx->out_path, "wb");
-        if (!ctx->out_file) {
-            perror("fopen");
-            exit(121);
-        }
-        setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
-    }
-
-    if (ctx->cli_options->dump_info) {
-        ctx->info_out_file = fopen(ctx->info_out_path, "wb");
-        if (!ctx->info_out_file) {
-            perror("fopen");
-            exit(121);
-        }
-    }
-
-
     /* structs initialization */
 
-    CabacContext *cactx = make_cactx();
+    CabacContext *cactx = make_cactx(ctx);
     ctx->cactx = cactx;
 
-    DSPContext *dsp_context = calloc(1, sizeof(DSPContext));
+    DSPContext *dsp_context = calloc_check(1, sizeof(DSPContext), ctx);
     ctx->dsp = dsp_context;
     dsp_init(ctx);
 
-    BitReader *br = malloc(sizeof(BitReader));
+    BitReader *br = calloc_check(1, sizeof(BitReader), ctx);
     ctx->br = br;
     ctx->global_bit_offset = 0;
 
-    ParamSets *ps = calloc(1, sizeof(ParamSets));
+    ParamSets *ps = calloc_check(1, sizeof(ParamSets), ctx);
     ctx->ps = ps;
 
-    ctx->current_slice = slice_alloc();
+    ctx->current_slice = slice_alloc(ctx);
 
     ctx->dpb = make_dpb(ctx);
 
-    ctx->prf = malloc(sizeof(Profiler));
+    ctx->prf = calloc_check(1, sizeof(Profiler), ctx);
     profiler_init(ctx->prf);
 
-    ctx->pool = calloc(1, sizeof(PicturePool));
+    ctx->pool = calloc_check(1, sizeof(PicturePool), ctx);
     ctx->pic_pool_initialized = false;
 
-    ctx->scratchMb = calloc(1, sizeof(Macroblock));
-    ctx->currMb = calloc(1, sizeof(Macroblock));
+    ctx->scratchMb = calloc_check(1, sizeof(Macroblock), ctx);
+    ctx->currMb = calloc_check(1, sizeof(Macroblock), ctx);
     ctx->prevQPY = 0;
 
+    ctx->next_nal_unit = calloc_check(1, sizeof(NalUnit), ctx);
+
+    ctx->nal_br = calloc_check(1, sizeof(BitReader), ctx);
 
 
 
-    ctx->levelScale4x4 = calloc(6, sizeof( int16_t[52][4][4] ));
-    ctx->levelScale8x8 = calloc(2, sizeof( int16_t[52][8][8] ));
+    ctx->levelScale4x4 = calloc_check(6, sizeof( int16_t[52][4][4] ), ctx);
+    ctx->levelScale8x8 = calloc_check(2, sizeof( int16_t[52][8][8] ), ctx);
 
 
 
@@ -278,7 +220,8 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
 
-            SliceHeader *sh = read_slice_header(nal_unit, ctx);
+            read_curr_slice_header(nal_unit, ctx);
+            SliceHeader *sh = ctx->curr_pic->sh;
 
             if (ctx->cli_options->dump_info) {
                 write_dpb_status_json(ctx->dpb, ctx->curr_pic->json_payload);
@@ -342,35 +285,57 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 }
 
 
-void decoder_run(Undo264Context *ctx) {
-    if (!ctx->initialized) return;
+int decoder_run(Undo264Context *ctx) {
+    if (!ctx->initialized) return UNDO_ERR_INTERNAL;
 
-    BitReader nal_br = make_br(ctx->data, ctx->data_size);
+    ctx->err.code = UNDO_OK;
+    ctx->err.msg[0] = '\0';
 
-    if (ctx->cli_options->dump_info) {
-        write_info_header_json(ctx);
-    }
+    if (setjmp(ctx->err_jmp) == 0) {
+        ctx->jmp_armed = 1;
 
-    https://www.youtube.com/watch?v=RrESvSRNpeo
-    {
-        NalUnit *nal = next_nal_unit(&nal_br);
+        /* decode stream */
+        bitreader_init(ctx->nal_br, ctx->data, ctx->data_size);
 
-        if (nal) {
-            dispatch_nal_unit(nal, ctx);
+        if (ctx->cli_options->dump_info) {
+            write_info_header_json(ctx);
+        }
 
-            free(nal->data);
-            free(nal);
+        https://www.youtube.com/watch?v=RrESvSRNpeo
+        {
+            memset(ctx->next_nal_unit, 0, sizeof(NalUnit));
 
-            if (bitreader_bits_remaining(&nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
-                goto https;
+            find_next_nal_unit(ctx->nal_br, ctx);
+            if (ctx->next_nal_unit->data) {
+                dispatch_nal_unit(ctx->next_nal_unit, ctx);
 
+                free(ctx->next_nal_unit->data);
+                ctx->next_nal_unit->data = NULL;
+
+                if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
+                    goto https;
+                }
             }
         }
+
+        dpb_flush(ctx->dpb);
+        fflush(ctx->out_file);
+
+
+        ctx->jmp_armed = 0;
+        return UNDO_OK;
     }
 
+    // error path: we arrive here after longjmp
+    ctx->jmp_armed = 0;
+    ctx->failed = 1;
+    dpb_flush(ctx->dpb);
 
-	dpb_flush(ctx->dpb);
-	fflush(ctx->out_file);
+    return ctx->err.code;
+}
+
+const char *decoder_error_msg(const Undo264Context *ctx) {
+    return ctx->err.msg;
 }
 
 void decoder_free_metadata(Undo264Context *ctx) {
@@ -383,8 +348,8 @@ void decoder_alloc_metadata(Undo264Context *ctx) {
 
     ctx->num_mbs = (int32_t)ctx->ps->sps->pic_width_in_mbs * (int32_t)ctx->ps->sps->pic_height_in_map_units;
 
-    ctx->mb_metadata = calloc(ctx->num_mbs, sizeof( MacroblockMetadata));
-    ctx->total_coeffs = calloc(ctx->num_mbs, sizeof( uint8_t [24]));
+    ctx->mb_metadata = calloc_check(ctx->num_mbs, sizeof( MacroblockMetadata), ctx);
+    ctx->total_coeffs = calloc_check(ctx->num_mbs, sizeof( uint8_t [24]), ctx);
 
 
     ctx->mb_metadata_initialized = true;
@@ -396,7 +361,8 @@ void decoder_free(Undo264Context *ctx) {
     free_cactx(ctx->cactx);
 
     #ifdef UNIX
-        munmap((void*)ctx->data, ctx->data_size);
+        if (ctx->data_is_mapped)
+            munmap((void*)ctx->data, ctx->data_size);
     #endif
 
     #ifdef WIN32
@@ -411,7 +377,13 @@ void decoder_free(Undo264Context *ctx) {
 
 
     for (int i = 0; i < MAX_SPS_COUNT; i++) {
-        if (ctx->ps->sps_list[i]) free(ctx->ps->sps_list[i]);
+        SPS *sps = ctx->ps->sps_list[i];
+        if (sps) {
+            if (sps->poc_type == 1) {
+                free(sps->offset_for_ref_frame);
+            }
+            free(ctx->ps->sps_list[i]);
+        }
     }
     for (int i = 0; i < MAX_PPS_COUNT; i++) {
         if (ctx->ps->pps_list[i]) free(ctx->ps->pps_list[i]);
@@ -423,14 +395,18 @@ void decoder_free(Undo264Context *ctx) {
 
     free(ctx->current_slice);
 
-
     free(ctx->currMb);
     free(ctx->scratchMb);
+
+    if (ctx->next_nal_unit->data)
+        free(ctx->next_nal_unit->data);
+    free(ctx->next_nal_unit);
+    free(ctx->nal_br);
 
 
     dpb_free(ctx->dpb);
 
-    if (ctx->cli_options->dump_frames)
+    if (ctx->cli_options->dump_frames && ctx->out_file)
         fclose(ctx->out_file);
 
     free(ctx->cli_options);

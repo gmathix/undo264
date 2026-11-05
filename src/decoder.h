@@ -8,10 +8,39 @@
 
 #include "global.h"
 
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stdnoreturn.h>
 
 #ifdef WIN32
 #include <Windows.h>
 #endif
+
+
+
+typedef enum {
+    UNDO_OK = 0,
+    UNDO_ERR_BITSTREAM,   // invalid per spec
+    UNDO_ERR_UNSUPPORTED, // valid but out of scope, see below
+    UNDO_ERR_LIMIT,       // exceeds limits defined by level_idc
+    UNDO_ERR_NOMEM,
+    UNDO_ERR_INTERNAL,
+} undo_status ;
+
+/* features out of undo264's scope, returning UNDO_ERR_UNSUPPORTED :
+ * - Field coding
+ * - MBAFF/PAFF
+ * - Profiles : CAVLC 4:4:4, High 10-bit, High 4:2:2, High 4:4:4
+ * - POC type 1
+ * - Multiple slice groups
+ */
+
+typedef struct {
+    undo_status code;
+    char        msg[256];
+    const char *file;
+    int         line;
+} DecError ;
 
 
 typedef struct CLIOptions {
@@ -26,6 +55,8 @@ typedef struct CLIOptions {
     bool use_avx2;
 } CLIOptions ;
 
+
+
 typedef struct Undo264Context {
     bool initialized;
 
@@ -36,6 +67,11 @@ typedef struct Undo264Context {
     FILE *out_file;
     FILE *info_out_file;
 
+    /* error handling */
+    jmp_buf  err_jmp;
+    int      jmp_armed;
+    int      failed;
+    DecError err;
 
     // input file
 #ifdef WIN32
@@ -45,6 +81,7 @@ typedef struct Undo264Context {
 #endif
 
     const uint8_t *data;
+    bool data_is_mapped;
     size_t data_size;
     size_t global_bit_offset;
 
@@ -64,6 +101,8 @@ typedef struct Undo264Context {
     struct Macroblock   *scratchMb;
     struct Macroblock   *currMb;
     struct CLIOptions   *cli_options;
+    struct NalUnit      *next_nal_unit;
+    struct BitReader    *nal_br;
 
 
     bool pic_pool_initialized;
@@ -155,36 +194,16 @@ typedef struct Undo264Context {
 } Undo264Context ;
 
 
-static Undo264Context *undo264_context_make(void) {
-    Undo264Context *ctx = calloc(1, sizeof(Undo264Context));
-    if (!ctx) {
-        perror("calloc");
-        return NULL;
-    }
-
-    ctx->out_path = "output.yuv";
-    ctx->info_out_path = "h264_info.json";
-
-    ctx->cli_options = calloc(1, sizeof(CLIOptions));
-
-    ctx->cli_options->dump_monochrome = false;
-    ctx->cli_options->dump_info       = false;
-
-    ctx->cli_options->deblock         = true;
-    ctx->cli_options->dump_frames     = true;
-    ctx->cli_options->use_simd        = true;
-    ctx->cli_options->use_sse         = true;
-    ctx->cli_options->use_avx2        = true;
-
-    return ctx;
-}
+Undo264Context *undo264_context_make(void);
 
 void decoder_init(Undo264Context *ctx);
-void decoder_run(Undo264Context *ctx);
+int  decoder_run(Undo264Context *ctx);
+const char *decoder_error_msg(const Undo264Context *ctx);
 void decoder_free_metadata(Undo264Context *ctx);
 void decoder_alloc_metadata(Undo264Context *ctx);
 void decoder_free(Undo264Context *ctx);
 
+void *calloc_check(size_t nb, size_t size, Undo264Context *ctx);
 
 
 #endif //TOY_H264_DECODER_H

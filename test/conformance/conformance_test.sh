@@ -13,13 +13,13 @@
 # Will be skipped :
 #   - Field coding
 #   - MBAFF/PAFF
-#   - High 4:2:2
-#   - High 10-bit
+#   - CAVLC 4:4:4, High 10-bit, High 4:2:2, High 4:4:4
 #   - POC type 1
+#   - Multiple slice groups
 
 
 
-DECODER="../../build/release/undo264"
+DECODER="../../build/debug_asan/undo264"
 INPUT_DIR="$1"
 
 if [[ $# -ne 1 ]]; then
@@ -102,7 +102,7 @@ while IFS= read -r -d '' subdir; do
     if [[ $ret -eq 0 ]]; then
         echo "  [OK]    Undo264 -> $(basename "$undo264_out")"
         ((inscope_bitstreams++))
-    elif [[ $ret -eq 67 ]]; then
+    elif [[ $ret -eq 3 ]]; then
         echo "  [SKIP] Out-of-scope bitstream (see ${stream_name}_undo264.log)"
         ((outscope_bitstreams++))
         continue

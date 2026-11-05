@@ -5,7 +5,22 @@
 
 #include "vlc.h"
 
+#include "decoder.h"
 
+
+
+
+VLCTable make_vlc(uint16_t size,uint16_t *codes, uint16_t *lengths, int max_bits, struct Undo264Context *ctx) {
+    VLCTable vlc;
+    init_vlc(&vlc, size, lengths, codes, max_bits);
+    return vlc;
+}
+
+MultiVLC make_mutli_vlc(int num_tables, struct Undo264Context *ctx) {
+    MultiVLC mv;
+    init_multi_vlc(&mv, num_tables, ctx);
+    return mv;
+}
 
 
 
@@ -16,23 +31,23 @@ void init_vlc(VLCTable *vlc, uint16_t size, uint16_t *lengths, uint16_t *codes, 
     vlc->max_bits = max_bits;
 }
 
-void init_multi_vlc(MultiVLC *mv, int num) {
-    mv->tables = malloc(num * sizeof(VLCTable));
+void init_multi_vlc(MultiVLC *mv, int num, Undo264Context *ctx) {
+    mv->tables = calloc_check(num, sizeof(VLCTable), ctx);
     mv->num_tables = num;
 }
 
 
-void set_vlc_table(MultiVLC *mv, int idx, uint16_t *lengths, uint16_t *codes, int size, int max_bits) {
-    VLCTable vlc = make_vlc(size, codes, lengths, max_bits);
+void set_vlc_table(MultiVLC *mv, int idx, uint16_t *lengths, uint16_t *codes, int size, int max_bits, Undo264Context *ctx) {
+    VLCTable vlc = make_vlc(size, codes, lengths, max_bits, ctx);
     mv->tables[idx] = vlc;
-    build_vlc(&mv->tables[idx]);
+    build_vlc(&mv->tables[idx], ctx);
 }
 
-void build_vlc(VLCTable *vlc) {
+void build_vlc(VLCTable *vlc, Undo264Context *ctx) {
     vlc->lookup_size = 1 << vlc->max_bits;
 
-    vlc->lookup_symbol = malloc(vlc->lookup_size * sizeof(uint16_t));
-    vlc->lookup_length = malloc(vlc->lookup_size * sizeof(uint16_t));
+    vlc->lookup_symbol = calloc_check(vlc->lookup_size, sizeof(uint16_t), ctx);
+    vlc->lookup_length = calloc_check(vlc->lookup_size, sizeof(uint16_t), ctx);
 
     for (int i = 0; i < vlc->lookup_size; i++) {
         vlc->lookup_length[i] = 0;

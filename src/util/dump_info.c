@@ -125,8 +125,8 @@ static void end_record(StrBuf *sb) {
     X(qpy) X(cbp) X(t8x8) X(intra_modes) X(chroma_intra_modes) X(pred_dir) X(mv_l0) X(mv_l1) X(ref_dec_idx_l0) \
     X(ref_dec_idx_l1)
 
-PictureJSONPayload *make_picture_json_payload(void) {
-    PictureJSONPayload *payload = calloc(1, sizeof(PictureJSONPayload));
+PictureJSONPayload *make_picture_json_payload(Undo264Context *ctx) {
+    PictureJSONPayload *payload = calloc_check(1, sizeof(PictureJSONPayload), ctx);
     if (!payload) return NULL;
 
 #define X(name) sb_init(&payload->name);

@@ -93,6 +93,6 @@ void     dump_picture(Picture *p, const Undo264Context *ctx);
 void pic_pool_init(PicturePool *pool, const Undo264Context *ctx);
 void pic_pool_free(PicturePool *pool, const Undo264Context *ctx);
 Picture *pic_pool_get(PicturePool *pool);
-void pic_pool_getback(Picture *pic, PicturePool *pool);
+void pic_pool_getback(Picture *pic, PicturePool *pool, Undo264Context *ctx);
 
 #endif //TOY_H264_Picture_H

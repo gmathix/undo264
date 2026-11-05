@@ -36,6 +36,20 @@
       }
     },
     {
+      "name": "replay_main",
+      "displayName": "Debug + sanitizers (Unix Makefiles) with Clang",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/replay_main",
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "DebugASAN",
+        "SANITIZE": "address,undefined",
+        "USE_NATIVE_ARCH": "OFF",
+        "BUILD_FUZZERS": "ON",
+        "UNDO264_COMPILER": "clang"
+      }
+    },
+    {
       "name": "win-release",
       "displayName": "Windows Release (Ninja, MinGW GCC/Clang)",
       "generator": "Ninja",

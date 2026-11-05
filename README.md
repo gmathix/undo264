@@ -46,10 +46,12 @@ chmod +x download_vectors.sh && chmod +x conformance_test.sh
 
 # Robustness
 
-Undo264 is not hardened against malformed or malicious bitstreams, though I'm planning to run a fuzzer on it in order 
-to find bugs and vulnerabilities.  
-As this is more of an educational project rather than a decoder intended for production, I will not fix everything 
-the fuzzer finds. Instead, I will fix and document a few, again, for educational purposes.
+Undo264 is not hardened against malformed or malicious bitstreams, though I'm currently running libFuzzer on it,
+in order to find bugs and potential vulnerabilities (see Fuzzing section below).  
+As this is more of an educational project rather than a decoder intended for production, I will not fix everything
+the fuzzer finds. Instead, I will fix and document a few vulnerabilities, again, for educational purposes.
+
+
 
 # Benchmarks
 
@@ -89,14 +91,14 @@ Below is a screenshot of the app in use with numbered callouts explaining how to
 in the top toolbar.
 3. **Top toolbar**: Fit frame to the viewport (F), 1:1 frame ratio (1), draw MB grid (G), draw Slice boundaries (S), 
 and the MV length slider.
-4. **Stream Info tree (left dock)**: the SPS (Sequence Parameter Set), PPS (Pequence Parameter Set), Frame Header and Slice Headers 
+4. **Stream Info tree (left dock)**: the SPS (Sequence Parameter Set), PPS (Picture Parameter Set), Frame Header and Slice Headers 
 of the current frame
 5. **Decoder Picture Buffer (DPB) table (left dock)**: pictures are numbered using their decoded index. Click a reference
 to highlight the blocks in the current frame that use it, double-click to open its header and jump to it.
 6. **Macroblock Inspector (right dock)**: type, QP, CBP, the partition map (click a partition) for both Intra and Inter
 macroblocks, and the motion vectors in quarter-pel and pixels.
 7. **Macroblock filters (right dock)**: they highlight macroblocks by type across the frame.
-8. **Transport bar**: with Play, Step, the slider, and Return to return to the active frame after jumping to a
+8. **Transport bar**: with Play, Step, the slider, and return to the active frame after jumping to a
 reference frame.
 9. **Window menu**: to hide or reopen any dock.
 
@@ -112,6 +114,10 @@ Then, run:
 pip install -r viewer/requirements.txt
 python3 viewer/viewer.py
 ```
+
+One warning: the app indexes all frames in the video file before playing it, which is why I recommend you to use 
+short videos (no more than a few minutes) to save you memory, otherwise you will get a very large .json info file, 
+and the viewer will consume a lot of memory.
      
 
 # Building
@@ -128,7 +134,7 @@ undo264 -i <input.264> -o <output.yuv>
 ```
 See ```undo264 --help``` to view command-line options. 
 
-### Presets
+## Presets
 
 | Preset    | Build type         | Purpose                                      |
 |-----------|--------------------|----------------------------------------------|
@@ -138,7 +144,7 @@ See ```undo264 --help``` to view command-line options.
 The resulting binary is tuned to the machine that built it and may crash with an illegal instruction on older CPUs, so don't
 build with a preset on one machine and run the binary on another.
 
-### Without presets
+## Without presets
 
 ```shell
 cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -147,7 +153,7 @@ cmake --build build -j
 
 Add `-G Ninja` to either configure command if you prefer Ninja over Make.
 
-### Options
+## Options
 
 Pass with `-D<option>=ON|OFF` at configure time.
 
@@ -157,11 +163,99 @@ Pass with `-D<option>=ON|OFF` at configure time.
 | `USE_SANITIZERS`  | OFF     | Builds with ASan + UBSan                                       |
 | `BUILD_TOOLS`     | ON      | Also builds `gen_rgb_video` and `compare_streams`              |
 
-### Installing
+## Installing
 
 ```shell
 cmake --install build/release --prefix /usr/local
 ```
+
+
+
+# Fuzzing
+
+There are numerous ways to fuzz video decoding software like undo264, so feel free to run your own fuzzing setup on it if you want to.
+Still, I wrote fuzzing workflow scripts with using AI to automate building and running different fuzz targets, 
+as well as automatically generate bug category reports to make it easier to sort, replay, and fix bugs. 
+
+Example commands given below should be run in the fuzzing/ directory.
+
+## Building fuzzers
+
+Fuzzing scripts that use [libFuzzer](https://llvm.org/docs/LibFuzzer.html) are available in the fuzzing/ folder.  
+LibFuzzer is bundled into Clang, hence it is required in order to build and run the available scripts.  
+Fuzzing targets have separate executables for -O0 and -O3 optimization levels, as well as for sanitizers ASan, UBSan, and MSan.  
+For example, to build the fuzzing target for -O3 and ASan only :  
+```bash
+./build_fuzzers.sh -o 3 -s address
+```
+
+## Making seed corpora
+
+Although you can use any set of H.264 videos you want to fuzz undo264, I used and recommend to use the AVCv1 and FRExt
+conformance suites, because they have very good coverage (this is the point of the suites).
+The make_seed_corpus.sh script takes an output directory, one or several input directories, and searches for H.264
+bitstreams inside then, to group them into the output seed directory. 
+It discards unsupported bitstreams, because undo264 almost immediately exits with them. This makes fuzzing from them pointless, 
+since it would consume precious fuzzing time. 
+
+Example command to make a seed corpus from AVCv1 and FRExt, assuming they have been downloaded and extracted with the 
+script test/conformance/download_vectors.sh : 
+```bash
+./make_seed_corpus.sh seeds/ ../test/conformance/AVCv1 ../test/conformance/FRExt
+```
+
+## Running fuzzers
+
+### Manually
+
+Each binary is a normal libFuzzer executable: run it with a corpus directory, e.g.
+```bash
+mkdir -p crashes/O3/address/some_seeds_name/ corpus/
+build/fuzz/O3-address/fuzz_decoder \
+        corpus/ \  
+        seeds/ \  
+        -fork=4 \
+        -max_len=65536 \  
+        -timeout=10 \  
+        -rss_limit_mb=2048 \  
+        -runs=1000000 \  
+        -artifact_prefix=crashes/O3/address/some_seeds_name/ \ 
+        -dict=fuzz_decoder.dict \
+        -ignore_crashes=1
+```
+- ```corpus/```: where libFuzzer places inputs that increase coverage
+- ```seeds/```: seed video directory
+- ```-fork```: number of child processes to create 
+- ```-max_len```: truncation size in bytes of seed inputs
+- ```-timeout```: per-input execution time limit in seconds before calling a timeout
+- ```-rss_limib_mb```: per-input heap memory limit before calling OOM crash
+- ```-runs```: run 1000000 fuzzing iterations, alternatively use -max_total_time=N to run for N seconds
+- ```-artifact_prefix```: mutated files that caused a crash goes there
+- ```-dict```: optional, dictionary of "magic values". Recommended if fuzzing without a starting seed corpus
+- ```-ignore_crashes```: to avoid libFuzzer exiting when an input causes a crash (only when used with -fork=N)
+
+The available fuzz_decoder.dict dictionary contains start codes, NAL unit types, delimiters, etc.
+
+### With fuzzing script
+
+The run_fuzz.sh script operates as follows : 
+1. Builds fuzz targets to run 
+2. Runs them so that OOM/timeouts/crashes do not stop the run 
+3. Replays crash artifacts one by one and extract their stack trace 
+4. Group crash artifacts by their stack trace and save results to report.md  
+  
+Example run that fuzzes the -O3 build with all ASan, UBSan, and MSan sanitizers: 
+```bash
+./run_fuzz.sh \ 
+  -t 300 \
+  -j 4 \
+  -S seeds \ 
+  -N AVCv1   
+```
+- ```-t 300```: run for 5 minutes for each target
+- ```-j 4```: fork in 4 separate child processes supervised by the parent process
+- ```-S seeds/```: input seeds directory
+- ```-N AVCv1_and_FRExt```: seeds collection name, used for naming the run directory
 
 
 # License

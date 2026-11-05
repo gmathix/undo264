@@ -3,6 +3,7 @@
 //
 #include "picture.h"
 
+#include "error.h"
 #include "slice.h"
 #include "util/dump_info.h"
 
@@ -10,8 +11,46 @@
 Picture EMPTY_PICTURE = {};
 
 
+
+/** table A-1 in Annex A (page 292) */
+static int get_max_pic_size_mbs(SPS *sps, Undo264Context *ctx) {
+    if ((sps->profile_idc == PROFILE_BASELINE || sps->profile_idc == PROFILE_MAIN || sps->profile_idc == PROFILE_HIGH) &&
+        sps->constraint_set3_flag == 1 && sps->level_idc == 11) {
+        return 99;
+    } else {
+        switch (sps->level_idc) {
+            case  9: return 99;
+            case 10: return 99;
+            case 11: return 396;
+            case 12: return 396;
+            case 13: return 396;
+            case 20: return 396;
+            case 21: return 792;
+            case 22: return 1620;
+            case 30: return 1620;
+            case 31: return 3600;
+            case 32: return 5120;
+            case 40: return 8192;
+            case 41: return 8192;
+            case 42: return 8704;
+            case 50: return 22080;
+            case 51: return 36864;
+            case 52: return 36864;
+            default: {
+                DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid level_idc: %d", sps->level_idc);
+            }
+        }
+    }
+}
+
+
 Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
-    Picture *p  = calloc(1, sizeof(Picture));
+    int num_mbs = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
+    int max_size = get_max_pic_size_mbs(sps, ctx);
+    DEC_CHECK(ctx, num_mbs <= max_size, UNDO_ERR_LIMIT,
+        "SPS requested picture size exceeds max size defined by level_idc (max %d, got %d)", max_size, num_mbs)
+
+    Picture *p  = calloc_check(1, sizeof(Picture), ctx);
 
 	p->widthY      = sps->pic_width_samples_l;
 	p->heightY     = sps->pic_height_samples_l;
@@ -21,20 +60,26 @@ Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
 	p->heightCropY = p->heightY - sps->crop_bottom_offset - sps->crop_top_offset;
 	p->widthCropC  = p->widthCropY / 2;
 	p->heightCropC = p->heightCropY / 2;
-    p->num_mbs     = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
+    p->num_mbs     = num_mbs;
 
-    p->luma        = calloc(p->widthY * p->heightY, 1);
-    p->cb          = calloc(p->widthY/2 * (p->heightY/2), 1);
-    p->cr          = calloc(p->widthY/2 * (p->heightY/2), 1);
+    p->luma        = calloc_check(p->widthY * p->heightY, 1, ctx);
 
-    p->mb_types     = calloc(p->num_mbs, sizeof( int ));
-    p->pred_flags   = calloc(p->num_mbs, sizeof( bool [2][4] ));
+    p->cb          = calloc_check(p->widthY/2 * (p->heightY/2), 1, ctx);
+    p->cr          = calloc_check(p->widthY/2 * (p->heightY/2), 1, ctx);
 
-    p->motion_val   = calloc(p->num_mbs, sizeof(int16_t  [2][16][2]));
-    p->ref_idx      = calloc(p->num_mbs, sizeof(int8_t   [2][16]));
-    p->ref_pics     = calloc(p->num_mbs, sizeof(Picture* [2][16]));
+    p->mb_types     = calloc_check(p->num_mbs, sizeof( int ), ctx);
+    p->pred_flags   = calloc_check(p->num_mbs, sizeof( bool [2][4] ), ctx);
 
-    p->json_payload = make_picture_json_payload();
+    p->motion_val   = calloc_check(p->num_mbs, sizeof(int16_t  [2][16][2]), ctx);
+    p->ref_idx      = calloc_check(p->num_mbs, sizeof(int8_t   [2][16]), ctx);
+    p->ref_pics     = calloc_check(p->num_mbs, sizeof(Picture* [2][16]), ctx);
+
+    p->sh = calloc_check(1, sizeof(SliceHeader), ctx);
+
+    if (ctx->cli_options->dump_info)
+        p->json_payload = make_picture_json_payload(ctx);
+    else
+        p->json_payload = NULL;
 
     return p;
 }
@@ -57,8 +102,11 @@ void picture_reset(Picture *p, Undo264Context *ctx) {
     p->top_field_order_cnt = 0;
     p->bottom_field_order_cnt = 0;
 
-    free_picture_json_payload(p->json_payload);
-    p->json_payload = make_picture_json_payload();
+    memset(p->sh, 0, sizeof(SliceHeader));
+
+    if (p->json_payload)
+        free_picture_json_payload(p->json_payload);
+    p->json_payload = make_picture_json_payload(ctx);
 }
 
 void picture_free(Picture *p) {
@@ -72,7 +120,10 @@ void picture_free(Picture *p) {
     free(p->ref_idx);
     free(p->ref_pics);
 
-    free_picture_json_payload(p->json_payload);
+    free(p->sh);
+
+    if (p->json_payload)
+        free_picture_json_payload(p->json_payload);
 
     free(p);
 }
@@ -114,11 +165,9 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
         decoder_alloc_metadata(ctx);
     }
 
-    pool->slots = malloc(pool->size * sizeof(Picture*));
-    if (!pool->slots) { perror("malloc"); exit(1); }
+    pool->slots = calloc_check(pool->size, sizeof(Picture*), ctx);
 
-    pool->available = calloc(pool->size, sizeof(bool));
-    if (!pool->available) { perror("calllc"); exit(1); }
+    pool->available = calloc_check(pool->size, sizeof(bool), ctx);
 
     for (int i = 0; i < pool->size; i++) {
         pool->slots[i] = picture_alloc(sps, ctx);
@@ -135,7 +184,10 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
 
 void pic_pool_free(PicturePool *pool, const Undo264Context *ctx) {
     for (int i = 0; i < pool->size; i++) {
-        if (pool->slots[i]) picture_free(pool->slots[i]);
+        Picture *pic = pool->slots[i];
+        if (pic) {
+            picture_free(pic);
+        }
     }
     free(pool->slots);
     free(pool->available);
@@ -153,7 +205,7 @@ Picture *pic_pool_get(PicturePool *pool) {
     return NULL; // bug
 }
 
-void pic_pool_getback(Picture *pic, PicturePool *pool) {
+void pic_pool_getback(Picture *pic, PicturePool *pool, Undo264Context *ctx) {
     int idx = -1;
     for (int i = 0; i < pool->size; i++) {
         if (pool->slots[i] == pic) {
@@ -164,5 +216,6 @@ void pic_pool_getback(Picture *pic, PicturePool *pool) {
     if (idx != -1) {
         pool->available[idx] = true;
         pool->nb_available++;
+        picture_reset(pic, ctx);
     }
 }

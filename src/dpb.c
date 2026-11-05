@@ -18,6 +18,8 @@
 
 
 #include "dpb.h"
+
+#include "error.h"
 #include "slice.h"
 
 #include "tests/profiler.h"
@@ -155,12 +157,9 @@ void derive_poc(DPB *dpb, Picture *pic) {
          * most encoders found that the bits saved weren't worth the complexity
          * in fact, many hardware decoders have had bugs specifically in their type 1 implementation,
          * just because there is so little content out there to test with
+         *
+         * this path shouldn't be reached anyway, as undo264 return UNDO_UNSUPPORTED error in SPS parsing on POC type 1
          */
-
-
-        printf("poc type 1 not implemented, i refuse to implement the cursed POC mode\n");
-        exit(67);
-
     } else if (pic->sh->sps->poc_type == 2) {
         /* commonly used (specific use cases)
          * it's extremely efficient because it requires almost no extra bits in the slice header,
@@ -265,8 +264,7 @@ static void remove_unused_pic(int idx, DPB *dpb) {
     Picture *pic = dpb->slots[idx];
     if (!pic || pic->dpb_status != UNUSED_REF) return;
 
-    free(pic->sh);
-    pic_pool_getback(pic, dpb->ctx->pool);
+    pic_pool_getback(pic, dpb->ctx->pool, dpb->ctx);
     dpb->fullness--;
     dpb->slots[idx] = NULL;
 }
@@ -277,8 +275,7 @@ static void output_and_free_pic(int idx, DPB *dpb) {
 
     if (!pic->is_output) output_pic(idx, dpb);
 
-    free(pic->sh);
-    pic_pool_getback(pic, dpb->ctx->pool);
+    pic_pool_getback(pic, dpb->ctx->pool, dpb->ctx);
     dpb->fullness--;
     dpb->slots[idx] = NULL;
 }
@@ -432,31 +429,31 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
     if (pic->sh->adaptive_ref_pic_marking_mode_flag) {
 
         /* use a new bitreader to read back at the MMCO position in the bitstream */
-        BitReader mmco_br = make_br(ctx->br->data, ctx->br->size);
+        BitReader *mmco_br = make_br(ctx->br->data, ctx->br->size);
 
-        mmco_br.byte_pos = pic->sh->mmco_position_bits / 8;
-        mmco_br.cache_pos  = pic->sh->mmco_position_bits % 8;
-        bitreader_refill(&mmco_br);
+        mmco_br->byte_pos = pic->sh->mmco_position_bits / 8;
+        mmco_br->cache_pos  = pic->sh->mmco_position_bits % 8;
+        bitreader_refill(mmco_br);
 
         uint32_t mmco = 0;
         do {
-            mmco = read_ue(&mmco_br);
+            mmco = read_ue(mmco_br);
 
             if (mmco == 1) {
-                uint32_t diff_pic_nums = read_ue(&mmco_br) + 1;
+                uint32_t diff_pic_nums = read_ue(mmco_br) + 1;
                 mark_st_pic_unused(ctx->dpb, pic->frame_num - diff_pic_nums);
             }
             if (mmco == 2) {
-                uint32_t lt_pic_num = read_ue(&mmco_br);
+                uint32_t lt_pic_num = read_ue(mmco_br);
                 mark_lt_pic_unused(ctx->dpb, lt_pic_num);
             }
             if (mmco == 3) {
-                uint32_t diff_pic_nums = read_ue(&mmco_br) + 1;
-                uint32_t lt_frame_idx = read_ue(&mmco_br);
+                uint32_t diff_pic_nums = read_ue(mmco_br) + 1;
+                uint32_t lt_frame_idx = read_ue(mmco_br);
                 assign_lt_idx_to_st_pic(ctx->dpb, pic->frame_num - diff_pic_nums, lt_frame_idx);
             }
             if (mmco == 4) {
-                uint32_t max_lt_frame_idx = read_ue(&mmco_br) - 1;
+                uint32_t max_lt_frame_idx = read_ue(mmco_br) - 1;
                 decode_max_lt_frame_idx(ctx->dpb, max_lt_frame_idx);
             }
             if (mmco == 5) {
@@ -474,10 +471,12 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
                 ctx->curr_pic->poc = 0;
             }
             if (mmco == 6) {
-                uint32_t lt_frame_idx = read_ue(&mmco_br);
+                uint32_t lt_frame_idx = read_ue(mmco_br);
                 mark_curr_pic_lt(ctx->dpb, lt_frame_idx);
             }
         } while (mmco != 0);
+
+        free(mmco_br);
     }
 }
 
@@ -778,7 +777,6 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
             nonExistingPic->nal_ref_idc    = currPic->nal_ref_idc;
             nonExistingPic->long_term_frame_idx = -1;
 
-            nonExistingPic->sh = calloc(1, sizeof(SliceHeader));
             memcpy(nonExistingPic->sh, currPic->sh, sizeof(SliceHeader));
 
 
@@ -842,7 +840,7 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
 /** ==================== MISC UTILS ==================== **/
 
 /** table A-1 in Annex A (page 292) */
-static int get_dpb_size_in_pictures(SPS *sps) {
+static int get_dpb_size_in_pictures(SPS *sps, Undo264Context *ctx) {
     int size_mbs = sps->pic_width_in_mbs * sps->pic_height_in_map_units;
 
     int size = 0; // max dpb size in macroblocks
@@ -869,8 +867,7 @@ static int get_dpb_size_in_pictures(SPS *sps) {
             case 51: size = 184320; break;
             case 52: size = 184320; break;
             default: {
-                fprintf(stderr, "invalid level_idc: %d\n", sps->level_idc);
-                exit(1);
+                DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid level_idc: %d", sps->level_idc);
             }
         }
     }
@@ -887,10 +884,9 @@ static int get_dpb_size_in_pictures(SPS *sps) {
 /** ==================== PRIMARY PUBLIC API ==================== **/
 
 void dpb_init(DPB *dpb, SPS *sps) {
-    dpb->slots_size = get_dpb_size_in_pictures(sps) + 1;
+    dpb->slots_size = get_dpb_size_in_pictures(sps, dpb->ctx) + 1;
 
-    dpb->slots = calloc(dpb->slots_size, sizeof(Picture*));
-    if (!dpb->slots) { perror("calloc"); exit(1); }
+    dpb->slots = calloc_check(dpb->slots_size, sizeof(Picture*), dpb->ctx);
 
     dpb->initialized = true;
 }
@@ -904,7 +900,7 @@ void dpb_flush(DPB *dpb) {
 void dpb_free(DPB *dpb) {
     for (int i = 0; i < dpb->slots_size; i++) {
         if (dpb->slots[i] != NULL) {
-            pic_pool_getback(dpb->slots[i], dpb->ctx->pool);
+            pic_pool_getback(dpb->slots[i], dpb->ctx->pool, dpb->ctx);
         }
     }
     free(dpb->slots);

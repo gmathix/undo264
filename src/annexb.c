@@ -2,8 +2,12 @@
 // Created by gmathix on 3/17/26.
 //
 
-#include "global.h"
+
 #include "annexb.h"
+
+#include "decoder.h"
+#include "global.h"
+
 
 #include "util/formulas.h"
 
@@ -30,7 +34,7 @@ int count_nals(const uint8_t *buf, size_t size) {
 
 
 /* split the raw stream into NAL units with emulation prevention bytes removal */
-void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int maxNals) {
+void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int maxNals, Undo264Context *ctx) {
     size_t i = 0;
     int nal_count = 0;
 
@@ -72,7 +76,8 @@ void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int ma
                 unit.data = nal_to_rbsp(
                     buf + start + 1, // remove header byte from payload
                     next - start - 1,
-                    &rbsp_size
+                    &rbsp_size,
+                    ctx
                     );
 
 
@@ -92,15 +97,14 @@ void fill_nal_units(const uint8_t *buf, size_t size, NalUnit *p_nalUnits, int ma
     }
 }
 
-NalUnit *next_nal_unit(BitReader *br) {
-    NalUnit *nal = calloc(1, sizeof(NalUnit));
+void find_next_nal_unit(BitReader *br, Undo264Context *ctx) {
+    NalUnit *nal = ctx->next_nal_unit;
 
     while (bitreader_peek_bits(br, 24) != 1 &&
            bitreader_peek_bits(br, 32) != 1) {
         bitreader_skip_bits(br, 8);
         if (bitreader_bits_remaining(br) < 8) {
-            free(nal);
-            return NULL;
+            return;
         }
     }
 
@@ -111,7 +115,9 @@ NalUnit *next_nal_unit(BitReader *br) {
     }
 
     size_t size = 0;
-    while (br->byte_pos < br->size-1 && bitreader_peek_bits(br,24) != 1 && bitreader_peek_bits(br, 32) != 1) {
+    while ((br->byte_pos + (br->cache_pos >> 3)) <  br->size && // reach end of buffer
+          ((br->byte_pos + (br->cache_pos >> 3)) >= br->size-3 || bitreader_peek_bits(br,24) != 1) && // find next 00 00 01 start code
+          ((br->byte_pos + (br->cache_pos >> 3)) >= br->size-4 || bitreader_peek_bits(br,32) != 1)) { // find next 00 00 00 01 start code
         size++;
         bitreader_skip_bits(br, 8);
     }
@@ -121,48 +127,22 @@ NalUnit *next_nal_unit(BitReader *br) {
     uint8_t header = bitreader_peek_bits(br, 8);
     size_t rbsp_size = 0;
     nal->data = nal_to_rbsp(
-        br->data + br->byte_pos + 1, // remove header byte from payload
-        size, &rbsp_size);
+        br->data + (br->byte_pos + (br->cache_pos >> 3)) + 1, // remove header byte from payload
+        size-1, &rbsp_size, ctx);
 
     nal->size = rbsp_size;
     nal->ref_idc = (header >> 5) & 0x03;
     nal->type = header & 0x1F;
 
-    bitreader_skip_bits(br, _min((br->size - br->byte_pos) * 8, size * 8));
-
-
-    return nal;
+    // bitreader_skip_bits(br, _min((br->size - br->byte_pos) * 8, size * 8));
+    br->byte_pos += size + (br->cache_pos >> 3);
+    br->cache_pos = 0;
+    bitreader_refill(br);
 }
 
-uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size) {
-    uint8_t *rbsp = malloc(size); // worst case : same size
+uint8_t *nal_to_rbsp(const uint8_t *buf, size_t size, size_t *rbsp_size, Undo264Context *ctx) {
+    uint8_t *rbsp = calloc_check(size, sizeof(uint8_t), ctx); // worst case : same size
     size_t j = 0;
-
-    // uint8_t *src = buf;
-    // uint8_t *end = buf+size;
-    // uint8_t *dst = rbsp;
-    //
-    // while (src < end) {
-    //     uint8_t *ptr = memchr(src, 0x03, end - src);
-    //     if (ptr == NULL) {
-    //         /* no more 0x03, just copy the rest */
-    //         memcpy(dst, src, end - src);
-    //         dst += end - src;
-    //         break;
-    //     }
-    //
-    //     if (ptr >= buf+2 && *(ptr-1) == 0x00 && *(ptr-2) == 0x00) {
-    //         // emulation prevention byte found, remove include everything up to (not including) the 0x03
-    //         memcpy(dst, src, ptr - src);
-    //         dst += ptr - src;
-    //         src = ptr + 1; // skip the 0x03
-    //     } else {
-    //         memcpy(dst, src, ptr - src + 1);
-    //         dst += ptr - src + 1;
-    //         src = ptr + 1;
-    //     }
-    // }
-    // *rbsp_size = dst - rbsp;
 
     for (size_t i = 0; i < size; i++) {
         if (i+2 < size && buf[i] == 0x00 && buf[i+1] == 0x00 && buf[i+2] == 0x03) { // skip emulation prevention byte
