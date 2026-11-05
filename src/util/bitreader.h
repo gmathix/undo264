@@ -33,7 +33,7 @@ static always_inline BitReader *make_br(const uint8_t *data, size_t size);
 static always_inline int bitreader_refill_half(BitReader *br) {
     br->bits_cache <<= 32;
 
-    if (br->size - br->byte_pos >= (size_t)8) {
+    if (br->size - br->byte_pos >= (size_t)8 && br->size > br->byte_pos) {
         uint32_t v;
         memcpy(&v, &br->data[br->byte_pos + 4], 4);
         br->bits_cache |= __builtin_bswap32(v);
@@ -51,7 +51,7 @@ static always_inline int bitreader_refill_half(BitReader *br) {
  * load 8 bytes into bits_cache
  */
 static always_inline int bitreader_refill(BitReader *br) {
-    if (br->size - br->byte_pos >= (size_t)8) {
+    if (br->size - br->byte_pos >= (size_t)8 && br->size > br->byte_pos) {
         uint64_t v;
         memcpy(&v, &br->data[br->byte_pos], 8);
         br->bits_cache = __builtin_bswap64(v); // little-endian to big-endian (no-op on big-endian machines)
@@ -76,8 +76,8 @@ static always_inline size_t bitreader_bits_remaining(BitReader *br) {
  * guaranteed to always have enough bits in the cache, since the cache it 64 bits and peek_bits returns 32 bits max
  */
 static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
-    if (n < 1 || n > 32) return 0;
     if (n > br->bits_remaining) n = br->bits_remaining;
+    if (n == 0 || n > 32) return 0;
 
     // shift left part of bits_cache to the right 32 bits, then mask the number of bits to peek
     return (uint32_t) (br->bits_cache >> (64 - br->cache_pos - n)) & (((uint64_t)1<<n) - 1);
@@ -86,7 +86,7 @@ static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
 
 static always_inline void bitreader_skip_bits(BitReader *br, size_t n) {
     br->cache_pos += n;
-    br->bits_remaining -= n;
+    br->bits_remaining = n <= br->bits_remaining ? br->bits_remaining - n : 0; // avoid underflow
 
     if (br->cache_pos >= 32) {
         br->byte_pos += 4;
