@@ -191,12 +191,11 @@ For example, to build the fuzzing target for -O3 and ASan only :
 
 ## Making seed corpora
 
-Although you can use any set of H.264 videos you want to fuzz undo264, I used and recommend to use the AVCv1 and FRExt
-conformance suites, because they have very good coverage (this is the point of the suites).
-The make_seed_corpus.sh script takes an output directory, one or several input directories, and searches for H.264
-bitstreams inside then, to group them into the output seed directory. 
-It discards unsupported bitstreams, because undo264 almost immediately exits with them. This makes fuzzing from them pointless, 
-since it would consume precious fuzzing time. 
+Although you can use any set of H.264 videos you want to fuzz undo264, I recommend to use the AVCv1 and FRExt
+conformance suites, because they have very good coverage (this is the point of the suites).  
+The make_seed_corpus.sh script can search for H.264 bitstreams in given directories, and group them into a given
+output seed directory. It discards unsupported bitstreams, because undo264 almost immediately exits with them,
+before decoding any slice. These bitstreams are therefore pointless to fuzz with, because it would consume precious fuzzing time.  
 
 Example command to make a seed corpus from AVCv1 and FRExt, assuming they have been downloaded and extracted with the 
 script test/conformance/download_vectors.sh : 
