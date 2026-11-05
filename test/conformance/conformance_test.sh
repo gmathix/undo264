@@ -13,13 +13,13 @@
 # Will be skipped :
 #   - Field coding
 #   - MBAFF/PAFF
-#   - High 4:2:2
-#   - High 10-bit
+#   - CAVLC 4:4:4, High 10-bit, High 4:2:2, High 4:4:4
 #   - POC type 1
+#   - Multiple slice groups
 
 
 
-DECODER="../../build/release/undo264"
+DECODER="../../build/debug_asan/undo264"
 INPUT_DIR="$1"
 
 if [[ $# -ne 1 ]]; then
