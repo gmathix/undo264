@@ -220,6 +220,7 @@ build/fuzz/O3-address/fuzz_decoder \
         -rss_limit_mb=2048 \  
         -runs=1000000 \  
         -artifact_prefix=crashes/O3/address/some_seeds_name/ \ 
+        -dict=fuzz_decoder.dict \
         -ignore_crashes=1
 ```
 - ```corpus/```: where libFuzzer places inputs that increase coverage
@@ -230,7 +231,10 @@ build/fuzz/O3-address/fuzz_decoder \
 - ```-rss_limib_mb```: per-input heap memory limit before calling OOM crash
 - ```-runs```: run 1000000 fuzzing iterations, alternatively use -max_total_time=N to run for N seconds
 - ```-artifact_prefix```: mutated files that caused a crash goes there
+- ```-dict```: optional, dictionary of "magic values". Recommended if fuzzing without a starting seed corpus
 - ```-ignore_crashes```: to avoid libFuzzer exiting when an input causes a crash (only when used with -fork=N)
+
+The available fuzz_decoder.dict dictionary contains start codes, NAL unit types, delimiters, etc.
 
 ### With fuzzing script
 
