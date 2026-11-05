@@ -21,11 +21,19 @@
 typedef enum {
     UNDO_OK = 0,
     UNDO_ERR_BITSTREAM,   // invalid per spec
-    UNDO_ERR_UNSUPPORTED, // valid but out of scope
+    UNDO_ERR_UNSUPPORTED, // valid but out of scope, see below
     UNDO_ERR_LIMIT,       // exceeds limits defined by level_idc
     UNDO_ERR_NOMEM,
     UNDO_ERR_INTERNAL,
 } undo_status ;
+
+/* features out of undo264's scope, returning UNDO_ERR_UNSUPPORTED :
+ * - Field coding
+ * - MBAFF/PAFF
+ * - Profiles : CAVLC 4:4:4, High 10-bit, High 4:2:2, High 4:4:4
+ * - POC type 1
+ * - Multiple slice groups
+ */
 
 typedef struct {
     undo_status code;
