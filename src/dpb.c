@@ -19,7 +19,7 @@
 
 #include "dpb.h"
 
-#include "error.h"
+#include "util/error.h"
 #include "slice.h"
 
 #include "tests/profiler.h"

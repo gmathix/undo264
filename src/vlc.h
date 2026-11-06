@@ -2,8 +2,8 @@
 // Created by gmathix on 4/1/26.
 //
 
-#ifndef TOY_H264_VLC_H
-#define TOY_H264_VLC_H
+#ifndef H264_VLC_H
+#define H264_VLC_H
 
 
 
@@ -67,4 +67,4 @@ static always_inline uint16_t get_vlc(const MultiVLC *mv, int table_idx, BitRead
 
 
 
-#endif //TOY_H264_VLC_H
+#endif //H264_VLC_H

@@ -2,8 +2,8 @@
 // Created by gmathix on 4/15/26.
 //
 
-#ifndef TOY_H264_DEQUANT_H
-#define TOY_H264_DEQUANT_H
+#ifndef H264_DEQUANT_H
+#define H264_DEQUANT_H
 
 
 #include "global.h"
@@ -41,4 +41,4 @@ void precompute_8x8_scales(int16_t (*scalingList8x8)[64], const Undo264Context *
 
 
 
-#endif //TOY_H264_DEQUANT_H
+#endif //H264_DEQUANT_H

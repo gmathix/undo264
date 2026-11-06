@@ -2,8 +2,8 @@
 // Created by gmathix on 3/20/26.
 //
 
-#ifndef TOY_H264_FORMULAS_H
-#define TOY_H264_FORMULAS_H
+#ifndef H264_FORMULAS_H
+#define H264_FORMULAS_H
 
 #include <stdint.h>
 #include <math.h>
@@ -81,4 +81,4 @@ static always_inline int _median(int x, int y, int z) {
 
 
 
-#endif //TOY_H264_FORMULAS_H
+#endif //H264_FORMULAS_H

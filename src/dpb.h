@@ -2,8 +2,8 @@
 // Created by gmathix on 4/21/26.
 //
 
-#ifndef TOY_H264_DPB_H
-#define TOY_H264_DPB_H
+#ifndef H264_DPB_H
+#define H264_DPB_H
 
 
 #include "global.h"
@@ -89,4 +89,4 @@ void dpb_free(DPB *dpb);
 
 
 
-#endif //TOY_H264_DPB_H
+#endif //H264_DPB_H

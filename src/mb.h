@@ -2,8 +2,8 @@
 // Created by gmathix on 3/21/26.
 //
 
-#ifndef TOY_H264_MB_H
-#define TOY_H264_MB_H
+#ifndef H264_MB_H
+#define H264_MB_H
 
 
 
@@ -323,4 +323,4 @@ void decode_i_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Conte
 void decode_p_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
 void decode_b_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
 
-#endif //TOY_H264_MB_H
+#endif //H264_MB_H

@@ -2,8 +2,8 @@
 // Created by gmathix on 3/12/26.
 //
 
-#ifndef TOY_H264_PS_H
-#define TOY_H264_PS_H
+#ifndef H264_PS_H
+#define H264_PS_H
 
 
 
@@ -130,4 +130,4 @@ int  decode_vui (SPS *sps, Undo264Context *ctx);
 void ps_uninit   (ParamSets *ps);
 
 
-#endif //TOY_H264_PS_H
+#endif //H264_PS_H

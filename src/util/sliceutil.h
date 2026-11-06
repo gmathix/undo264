@@ -2,8 +2,8 @@
 // Created by gmathix on 3/28/26.
 //
 
-#ifndef TOY_H264_SLICEUTIL_H
-#define TOY_H264_SLICEUTIL_H
+#ifndef H264_SLICEUTIL_H
+#define H264_SLICEUTIL_H
 
 
 
@@ -39,4 +39,4 @@ static char* slice_type_to_string(uint32_t slice_type) {
 
 
 
-#endif //TOY_H264_SLICEUTIL_H
+#endif //H264_SLICEUTIL_H

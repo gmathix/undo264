@@ -31,7 +31,7 @@
 
 #include <sys/stat.h>
 
-#include "error.h"
+#include "util/error.h"
 
 #ifdef UNIX
 #include <unistd.h>
@@ -107,7 +107,10 @@ void decoder_init(Undo264Context *ctx) {
     dsp_init(ctx);
 
     BitReader *br = calloc_check(1, sizeof(BitReader), ctx);
-    ctx->br = br;
+    br->err       = &ctx->err;
+    br->err_jmp   = &ctx->err_jmp;
+    br->jmp_armed = true;
+    ctx->br       = br;
     ctx->global_bit_offset = 0;
 
     ParamSets *ps = calloc_check(1, sizeof(ParamSets), ctx);

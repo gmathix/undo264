@@ -2,8 +2,8 @@
 // Created by gmathix on 3/18/26.
 //
 
-#ifndef TOY_H264_EXPGOLOMB_H
-#define TOY_H264_EXPGOLOMB_H
+#ifndef H264_EXPGOLOMB_H
+#define H264_EXPGOLOMB_H
 
 
 #include <stdint.h>
@@ -93,4 +93,4 @@ static always_inline uint32_t map_coded_block_pattern(uint32_t codeNum, int chro
 
 
 
-#endif //TOY_H264_EXPGOLOMB_H
+#endif //H264_EXPGOLOMB_H

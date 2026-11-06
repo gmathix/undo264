@@ -2,8 +2,8 @@
 // Created by gmathix on 3/21/26.
 //
 
-#ifndef TOY_H264_MBUTIL_H
-#define TOY_H264_MBUTIL_H
+#ifndef H264_MBUTIL_H
+#define H264_MBUTIL_H
 
 
 #include <stdint.h>
@@ -135,4 +135,4 @@ static char *sub_mb_type_to_string(int type) {
     return "UNDEF";
 }
 
-#endif //TOY_H264_MBUTIL_H
+#endif //H264_MBUTIL_H

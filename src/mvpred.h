@@ -2,8 +2,8 @@
 // Created by gmathix on 5/1/26.
 //
 
-#ifndef TOY_H264_MVPRED_H
-#define TOY_H264_MVPRED_H
+#ifndef H264_MVPRED_H
+#define H264_MVPRED_H
 
 
 #include "global.h"
@@ -522,4 +522,4 @@ static void derive_8x8_mv(Macroblock *mb, const Undo264Context *ctx) {
 
 
 
-#endif //TOY_H264_MVPRED_H
+#endif //H264_MVPRED_H

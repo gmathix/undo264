@@ -3,7 +3,7 @@
 //
 #include "picture.h"
 
-#include "error.h"
+#include "util/error.h"
 #include "slice.h"
 #include "util/dump_info.h"
 
