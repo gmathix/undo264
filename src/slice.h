@@ -2,8 +2,8 @@
 // Created by gmathix on 3/20/26.
 //
 
-#ifndef TOY_H264_SLICE_H
-#define TOY_H264_SLICE_H
+#ifndef H264_SLICE_H
+#define H264_SLICE_H
 
 
 #include "global.h"
@@ -349,4 +349,4 @@ static void read_curr_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
     }
 }
 
-#endif //TOY_H264_SLICE_H
+#endif //H264_SLICE_H

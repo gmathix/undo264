@@ -2,8 +2,8 @@
 // Created by gmathix on 4/6/26.
 //
 
-#ifndef TOY_H264_INTRA_H
-#define TOY_H264_INTRA_H
+#ifndef H264_INTRA_H
+#define H264_INTRA_H
 
 
 #include "global.h"
@@ -98,4 +98,4 @@ void intra_pred_16x16(Macroblock *mb, const Undo264Context *ctx);
 void intra_chroma_pred(Macroblock *mb, const Undo264Context *ctx);
 
 
-#endif //TOY_H264_INTRA_H
+#endif //H264_INTRA_H

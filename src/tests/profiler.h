@@ -2,8 +2,8 @@
 // Created by gmathix on 4/9/26.
 //
 
-#ifndef TOY_H264_PROFILER_H
-#define TOY_H264_PROFILER_H
+#ifndef H264_PROFILER_H
+#define H264_PROFILER_H
 
 
 #include <stddef.h>
@@ -37,4 +37,4 @@ long long get_total_mb_microseconds(Profiler *prf);
 
 
 
-#endif //TOY_H264_PROFILER_H
+#endif //H264_PROFILER_H

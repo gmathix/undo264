@@ -2,8 +2,8 @@
 // Created by gmathix on 3/30/26.
 //
 
-#ifndef TOY_H264_CAVLC_H
-#define TOY_H264_CAVLC_H
+#ifndef H264_CAVLC_H
+#define H264_CAVLC_H
 
 
 
@@ -59,4 +59,4 @@ void  parse_level    (int16_t levelVal[], int blkIdx, int bt, int totalCoeff, in
 void  parse_run      (int16_t runVal[], int blkIdx, int bt,  int totalCoeff, int maxNumCoeff, int startIdx, int endIdx, SliceHeader *sh, const Undo264Context *ctx);
 void  reconstruct    (const int16_t levelVal[], int blkIdx, int bt, const int16_t runVal[], int16_t coeffLevel[], int startIdx, int totalCoeff);
 
-#endif //TOY_H264_CAVLC_H
+#endif //H264_CAVLC_H

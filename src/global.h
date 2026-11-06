@@ -2,8 +2,8 @@
 // Created by gmathix on 4/6/26.
 //
 
-#ifndef TOY_H264_GLOBAL_H
-#define TOY_H264_GLOBAL_H
+#ifndef H264_GLOBAL_H
+#define H264_GLOBAL_H
 
 
 
@@ -173,4 +173,4 @@ typedef struct MotionVector {
 
 
 
-#endif //TOY_H264_GLOBAL_H
+#endif //H264_GLOBAL_H

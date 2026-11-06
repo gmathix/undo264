@@ -2,8 +2,8 @@
 // Created by gmathix on 4/5/26.
 //
 
-#ifndef TOY_H264_LOGGER_H
-#define TOY_H264_LOGGER_H
+#ifndef H264_LOGGER_H
+#define H264_LOGGER_H
 
 
 #include "bitreader.h"
@@ -81,4 +81,4 @@ void print_macroblock(Picture *pic, int mbAddr, int iYCbCr);
 
 
 
-#endif //TOY_H264_LOGGER_H
+#endif //H264_LOGGER_H

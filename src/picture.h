@@ -2,8 +2,8 @@
 // Created by gmathix on 4/6/26.
 //
 
-#ifndef TOY_H264_Picture_H
-#define TOY_H264_Picture_H
+#ifndef H264_Picture_H
+#define H264_Picture_H
 
 
 #include "global.h"
@@ -95,4 +95,4 @@ void pic_pool_free(PicturePool *pool, const Undo264Context *ctx);
 Picture *pic_pool_get(PicturePool *pool);
 void pic_pool_getback(Picture *pic, PicturePool *pool, Undo264Context *ctx);
 
-#endif //TOY_H264_Picture_H
+#endif //H264_Picture_H
