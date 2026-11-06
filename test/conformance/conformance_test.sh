@@ -19,7 +19,9 @@
 
 
 
-DECODER="../../build/debug_asan/undo264"
+ASAN_DECODER="../../build/debug_asan/undo264" # slower, but counts detected leaks and errors as failed decode
+RELEASE_DECODER="../../build/release/undo264" # faster, ignores leaks and errors
+DECODER=ASAN_DECODER
 INPUT_DIR="$1"
 
 if [[ $# -ne 1 ]]; then
