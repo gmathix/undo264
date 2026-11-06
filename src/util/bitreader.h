@@ -2,10 +2,13 @@
 // Created by gmathix on 3/12/26.
 //
 
-#ifndef TOY_H264_BITREADER_H
-#define TOY_H264_BITREADER_H
+#ifndef H264_BITREADER_H
+#define H264_BITREADER_H
+
 
 #include "../global.h"
+#include "error.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,6 +21,11 @@ typedef struct BitReader {
     size_t         bits_remaining;
     uint64_t       bits_cache;
     size_t         cache_pos;
+
+    // these are used when trying to READ bits past the end of the buffer
+    DecError *err;
+    jmp_buf  *err_jmp;
+    bool     jmp_armed;
 } BitReader ;
 
 
@@ -77,7 +85,6 @@ static always_inline size_t bitreader_bits_remaining(BitReader *br) {
  */
 static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
     if (n > br->bits_remaining) n = br->bits_remaining;
-    if (n == 0 || n > 32) return 0;
 
     // shift left part of bits_cache to the right 32 bits, then mask the number of bits to peek
     return (uint32_t) (br->bits_cache >> (64 - br->cache_pos - n)) & (((uint64_t)1<<n) - 1);
@@ -96,10 +103,15 @@ static always_inline void bitreader_skip_bits(BitReader *br, size_t n) {
 }
 
 static always_inline uint32_t bitreader_read_bits(BitReader *br, size_t n) {
-    uint32_t res = bitreader_peek_bits(br, n);
-    bitreader_skip_bits(br, n);
+    if (br->bits_remaining == 0 && br->jmp_armed) {
+        FAIL(br->err, br->err_jmp, UNDO_ERR_BITSTREAM,
+            "bitreader oveflow: %zu bits requested, remaining 0. file might have been truncated mid-frame.\n", n);
+    } else {
+        uint32_t res = bitreader_peek_bits(br, n);
+        bitreader_skip_bits(br, n);
 
-    return res;
+        return res;
+    }
 }
 
 static always_inline void bitreader_rewind(BitReader *br, size_t n) {
@@ -167,4 +179,4 @@ static always_inline BitReader *make_br(const uint8_t *data, size_t size) {
 }
 
 
-#endif //TOY_H264_BITREADER_H
+#endif //H264_BITREADER_H
