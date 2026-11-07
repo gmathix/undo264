@@ -12,7 +12,9 @@
 #   USE_NATIVE_ARCH    ON (default): -march=native, for native builds on macOS/Linux/
 #                      Windows only. Cross builds must pass their own -march through
 #                      CMAKE_C_FLAGS, as with edge264's CFLAGS.
-#   SANITIZE           comma-separated list passed to -fsanitize=, e.g. address,undefined
+#   ENABLE_ASAN        OFF (default): AddressSanitizer
+#   ENABLE_UBSAN       OFF (default): UndefinedBehaviorSanitizer
+#   ENABLE_MSAN        OFF (default): MemorySanitizer (Clang + Linux only, exclusive with ASan)
 #   BUILD_TOOLS        ON (default): also build gen_rgb_video / compare_streams
 #   COPY_MINGW_RUNTIME OFF (default): MinGW only, copy runtime DLLs next to the .exes
 # ==============================================================================
@@ -82,7 +84,9 @@ endif()
 
 # ---- User parameters ---------------------------------------------------------
 option(USE_NATIVE_ARCH "Optimize for the host CPU (-march=native); native builds only" ON)
-set(SANITIZE "" CACHE STRING "Comma-separated sanitizers for -fsanitize=, e.g. address,undefined")
+option(ENABLE_ASAN  "Build with AddressSanitizer" OFF)
+option(ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
+option(ENABLE_MSAN  "Build with MemorySanitizer (Clang on Linux only; exclusive with ASan)" OFF)
 option(BUILD_TOOLS "Build gen_rgb_video / compare_streams helper tools" ON)
 option(COPY_MINGW_RUNTIME "MinGW: copy runtime DLLs next to the executables after building" OFF)
 option(BUILD_FUZZERS "Build the fuzz target (needs clang for libFuzzer)" OFF)
@@ -115,12 +119,13 @@ target_compile_options(undo264_warnings INTERFACE
         -Wall -Wextra -Wpedantic
         -flax-vector-conversions -Wno-override-init
         $<$<CONFIG:Release>:-O3>
-        $<$<CONFIG:Debug,DebugASAN>:-O0 -g3>
+        $<$<CONFIG:Debug>:-O0 -g3>
 )
 
 # ---- Architecture ------------------------------------------------------------
 if(UNDO264_OS STREQUAL "wasm")
-    target_compile_options(undo264_warnings INTERFACE -msimd128)
+    target_compile_options(undo264_warnings INTERFACE -msimd128 -msse4.2 -mavx2)
+    target_compile_definitions(undo264_warnings INTERFACE ARCH_X86=1 WASM)
 elseif(USE_NATIVE_ARCH AND NOT CMAKE_CROSSCOMPILING
         AND UNDO264_OS MATCHES "^(macos|linux|windows)$")
     include(CheckCCompilerFlag)
@@ -135,28 +140,54 @@ elseif(USE_NATIVE_ARCH AND NOT CMAKE_CROSSCOMPILING
     endif()
 endif()
 
+
+
 # ---- Sanitizers --------------------------------------------------------------
 add_library(undo264_sanitizers INTERFACE)
-set(_san "${SANITIZE}")
-if(NOT "${_san}" STREQUAL "" AND WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+
+set(_san "")
+if(ENABLE_ASAN)
+    list(APPEND _san address)
+endif()
+if(ENABLE_UBSAN)
+    list(APPEND _san undefined)
+endif()
+if(ENABLE_MSAN)
+    list(APPEND _san memory)
+endif()
+
+if(_san AND WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
     # MinGW-w64 GCC doesn't ship sanitizer runtimes
-    message(WARNING "SANITIZE is not supported with MinGW GCC; ignoring")
+    message(WARNING "Sanitizers are not supported with MinGW GCC; ignoring")
     set(_san "")
 endif()
-if(NOT "${_san}" STREQUAL "")
-    set(_san_flags "-fsanitize=${_san}")
-    if(_san MATCHES "address")
-        if(_san MATCHES "memory")
-            message(FATAL_ERROR "SANITIZE: 'address' and 'memory' are mutually exclusive")
-        endif()
+
+if(ENABLE_ASAN AND ENABLE_MSAN)
+    message(FATAL_ERROR "ENABLE_ASAN and ENABLE_MSAN are mutually exclusive")
+endif()
+if(ENABLE_MSAN)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "ENABLE_MSAN needs Clang (use -DUNDO264_COMPILER=clang in a fresh build directory)")
+    endif()
+    if(NOT UNDO264_OS STREQUAL "linux")
+        message(FATAL_ERROR "ENABLE_MSAN is Linux-only (not supported on ${UNDO264_OS})")
+    endif()
+endif()
+
+list(JOIN _san "," _san_list)
+if(NOT _san_list STREQUAL "")
+    set(_san_flags "-fsanitize=${_san_list}")
+    if(ENABLE_ASAN)
         list(APPEND _san_flags -fno-omit-frame-pointer -g)   # readable stack traces
     endif()
-    if(_san MATCHES "memory")
-        list(APPEND _san_flags -fPIE)                        # reliable interception
+    if(ENABLE_MSAN)
+        list(APPEND _san_flags -fPIE -fno-omit-frame-pointer -g)
     endif()
     target_compile_options(undo264_sanitizers INTERFACE ${_san_flags})
     target_link_options(undo264_sanitizers INTERFACE ${_san_flags})
 endif()
+
+
 
 # ---- Link flags --------------------------------------------------------------
 add_library(undo264_link INTERFACE)
@@ -198,7 +229,7 @@ target_include_directories(undo264_core PUBLIC src)
 target_link_libraries(undo264_core PUBLIC
         ${UNDO264_LIBM} undo264_warnings undo264_sanitizers undo264_link)
 target_compile_definitions(undo264_core PUBLIC
-        $<$<CONFIG:Debug,DebugASAN>:SLICES_LOG=1>
+        $<$<CONFIG:Debug>:SLICES_LOG=1>
         $<$<BOOL:${WIN32}>:WIN32>
         $<$<BOOL:${UNIX}>:UNIX>)
 
@@ -214,9 +245,6 @@ if(BUILD_FUZZERS)
     target_link_libraries(fuzz_decoder PRIVATE undo264_core ${_fuzz_engine})
 
     target_compile_options(undo264_core PUBLIC -UNDEBUG)
-
-    add_executable(replay_main fuzzing/replay_main.c fuzzing/fuzz_target.c)
-    target_link_libraries(replay_main PRIVATE undo264_core)
 endif()
 
 # ---- Replay targets: one executable per sanitizer ----------------------------
@@ -294,4 +322,4 @@ endif()
 message(STATUS "undo264 ${PROJECT_VERSION}: OS=${UNDO264_OS}"
         " compiler=${CMAKE_C_COMPILER_ID} (${CMAKE_C_COMPILER}) [UNDO264_COMPILER=${UNDO264_COMPILER}]"
         " build=${CMAKE_BUILD_TYPE} native=${_native}"
-        " sanitize='${_san}' tools=${BUILD_TOOLS}")
+        " sanitize='${_san_list}' tools=${BUILD_TOOLS}")
