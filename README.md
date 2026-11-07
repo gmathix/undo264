@@ -118,11 +118,14 @@ python3 viewer/viewer.py
 One warning: the app indexes all frames in the video file before playing it, which is why I recommend you to use 
 short videos (no more than a few minutes) to save you memory, otherwise you will get a very large .json info file, 
 and the viewer will consume a lot of memory.
-     
+
 
 # Building
 
-**Requirements:** CMake ≥ 3.20, a C11 compiler (GCC or Clang), and `make`.
+**Requirements:** CMake ≥ 3.20 and a C11 compiler, either GCC or Clang (AppleClang included). MSVC is not supported.
+The build generator is Unix Makefiles on macOS/Linux and Ninja on Windows (the presets pick it for you).
+
+**Supported targets:** macOS, Linux, Windows (MinGW-w64) and WebAssembly (Emscripten).
 
 ### Quick start
 
@@ -132,17 +135,23 @@ cmake --build --preset release -j $(nproc)
 cmake --install build/release --prefix /usr/local
 undo264 -i <input.264> -o <output.yuv>
 ```
-See ```undo264 --help``` to view command-line options. 
+See ```undo264 --help``` to view command-line options.
 
 ## Presets
 
-| Preset    | Build type         | Purpose                                      |
-|-----------|--------------------|----------------------------------------------|
-| `release` | Release (`-O3`)    | Normal use                                   |
-| `debug`   | Debug + ASan/UBSan | Development and bug hunting (much slower)    |
+| Preset            | Platform | Build type       | Purpose                                                              |
+|-------------------|----------|------------------|----------------------------------------------------------------------|
+| `release`         | Unix     | Release (`-O3`)  | Normal use                                                           |
+| `debug`           | Unix     | Debug (`-O0 -g3`)| Development and debugging, enables `SLICES_LOG`                      |
+| `debug_sanitize`  | Unix     | Debug            | Bug hunting with sanitizers: ASan + UBSan by default (much slower)   |
+| `replay_targets`  | Linux    | Debug            | Builds `replay_asan`, `replay_ubsan` and `replay_msan` with Clang    |
+| `win-release`     | Windows  | Release (`-O3`)  | Normal use with MinGW GCC/Clang, copies the runtime DLLs             |
+| `win-debug`       | Windows  | Debug            | Development with MinGW GCC/Clang, copies the runtime DLLs            |
 
-The resulting binary is tuned to the machine that built it and may crash with an illegal instruction on older CPUs, so don't
-build with a preset on one machine and run the binary on another.
+Build presets with the same names exist for `release`, `debug`, `debug_sanitize`, `replay_targets`, `win-release` and `win-debug`.
+
+The `release` and `win-release` presets use `-march=native`, so the binary is tuned to the machine that built it and may crash
+with an illegal instruction on older CPUs. Don't build on one machine and run the binary on another.
 
 ## Without presets
 
@@ -151,17 +160,80 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-Add `-G Ninja` to either configure command if you prefer Ninja over Make.
+Add `-G Ninja` to the configure command if you prefer Ninja over Make. If `CMAKE_BUILD_TYPE` is not given,
+single-config generators default to `Release`.
 
 ## Options
 
-Pass with `-D<option>=ON|OFF` at configure time.
+Pass with `-D<option>=<value>` at configure time.
 
-| Option            | Default | Effect                                                         |
-|-------------------|---------|----------------------------------------------------------------|
-| `USE_NATIVE_ARCH` | ON      | Adds `-march=native`. SIMD is currently x86-only; other architectures build and run using the plain C paths. |
-| `USE_SANITIZERS`  | OFF     | Builds with ASan + UBSan                                       |
-| `BUILD_TOOLS`     | ON      | Also builds `gen_rgb_video` and `compare_streams`              |
+| Option                 | Default   | Effect                                                                                              |
+|------------------------|-----------|-----------------------------------------------------------------------------------------------------|
+| `UNDO264_COMPILER`     | `gcc`     | `gcc` or `clang`. Ignored if you set `CMAKE_C_COMPILER`, the `CC` environment variable or a toolchain file. |
+| `CMAKE_BUILD_TYPE`     | `Release` | `Release`, `Debug` or `RelWithDebInfo`. `Debug` also defines `SLICES_LOG=1`.                        |
+| `USE_NATIVE_ARCH`      | `ON`      | Adds `-march=native` (native builds on macOS/Linux/Windows only). SIMD is currently x86-only, other architectures build and run using the plain C paths. For cross builds, pass your own `-march` through `CMAKE_C_FLAGS`. |
+| `ENABLE_ASAN`          | `OFF`     | Builds with AddressSanitizer. Cannot be combined with `ENABLE_MSAN`.                                |
+| `ENABLE_UBSAN`         | `OFF`     | Builds with UndefinedBehaviorSanitizer.                                                             |
+| `ENABLE_MSAN`          | `OFF`     | Builds with MemorySanitizer. Requires Clang on Linux.                                               |
+| `BUILD_TOOLS`          | `ON`      | Also builds `gen_rgb_video` and `compare_streams`.                                                  |
+| `COPY_MINGW_RUNTIME`   | `OFF`     | MinGW only: copies the runtime DLLs next to the executables after building.                         |
+| `BUILD_FUZZERS`        | `OFF`     | Builds the `fuzz_decoder` libFuzzer target (needs Clang). See [Fuzzing](#fuzzing).                  |
+| `FUZZ_ENGINE`          | `-fsanitize=fuzzer` | Fuzzing engine flags, or `$LIB_FUZZING_ENGINE` under OSS-Fuzz/ClusterFuzzLite.            |
+| `BUILD_REPLAY_TARGETS` | `OFF`     | Builds `replay_asan`, `replay_ubsan` and `replay_msan`, to replay crashes found by the fuzzers (needs Clang on Linux). |
+
+Notes:
+- Sanitizers are ignored with a warning on MinGW GCC, which doesn't ship sanitizer runtimes.
+- Options are cached in the build directory. When switching sanitizers or compilers, use a fresh build directory
+  or add `--fresh` to the configure command (CMake ≥ 3.24).
+
+### Building with sanitizers
+
+The `debug_sanitize` preset enables ASan + UBSan. Choose other combinations with the `ENABLE_*` options:
+
+```shell
+# default: ASan + UBSan
+cmake --preset debug_sanitize
+cmake --build --preset debug_sanitize -j
+
+# UBSan only
+cmake --preset debug_sanitize --fresh -DENABLE_ASAN=OFF
+
+# MSan only (Clang on Linux, ASan must be off)
+cmake --preset debug_sanitize --fresh -DENABLE_ASAN=OFF -DENABLE_UBSAN=OFF \
+      -DENABLE_MSAN=ON -DUNDO264_COMPILER=clang
+```
+
+MSan requires every translation unit to be instrumented, otherwise it reports false positives.
+
+### Replay targets
+
+The replay targets exist only to replay crashes found by the fuzzers. Each one is a separate executable with its own
+instrumented copy of the decoder:
+
+```shell
+cmake --preset replay_targets
+cmake --build --preset replay_targets -j
+```
+
+### WebAssembly
+
+```shell
+emcmake cmake -B build-wasm -DCMAKE_BUILD_TYPE=Release
+cmake --build build-wasm -j
+```
+
+This produces `undo264.js` and `undo264.wasm` (built with `-msimd128`). It runs under Node with direct host
+filesystem access (`NODERAWFS`).
+
+### Windows
+
+```shell
+cmake --preset win-release
+cmake --build --preset win-release
+```
+
+Put MinGW-w64's `bin` folder on the `PATH`, or pass `-DCMAKE_C_COMPILER=<path to gcc.exe or clang.exe>`.
+Use a fresh build directory if it already picked another compiler.
 
 ## Installing
 
