@@ -93,6 +93,10 @@ Undo264Context *undo264_context_make(void) {
     ctx->cli_options->use_sse         = true;
     ctx->cli_options->use_avx2        = true;
 
+    ctx->err = (DecError) {0};
+
+
+
     return ctx;
 }
 
@@ -178,7 +182,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
     bitreader_init(ctx->br, nal_unit->data, nal_unit->size);
 
     switch (nal_unit->type) {
-        case NAL_SEI: break;
+        case NAL_SEI: return 0;
         case NAL_SPS:
             decode_sps(ctx); ctx->global_bit_offset += bitreader_bits_consumed(ctx->br);
             int num_mbs = ctx->ps->sps->pic_height_in_map_units * ctx->ps->sps->pic_width_in_mbs;
@@ -198,7 +202,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
                 write_sps_json(ctx->ps->sps, ctx);
             }
 
-            break;
+            return 0;
         case NAL_PPS: {
             decode_pps(ctx);
             ctx->global_bit_offset += bitreader_bits_consumed(ctx->br);
@@ -207,7 +211,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
                 write_pps_json(ctx->ps->pps, ctx);
             }
 
-            break;
+            return 0;
         }
 
 
@@ -264,7 +268,7 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
             ctx->global_bit_offset += bitreader_bits_consumed(ctx->br);
-            break;
+            return 0;
         }
 
         case NAL_UNSPECIFIED:
