@@ -108,7 +108,7 @@ static int open_files(Undo264Context *ctx) {
 
 
     /* input file, uses memory mapping which is platform-specific */
-#ifdef UNIX
+#if defined(UNIX) && !defined(WASM)
     int fd = open(ctx->in_path, O_RDONLY);
     if (fd < 0) {
         perror("open");
@@ -131,16 +131,15 @@ static int open_files(Undo264Context *ctx) {
     }
     madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
     ctx->data_is_mapped = true;
-#endif
-
-#ifdef WIN32
-    TCHAR *lpFileName = TEXT(ctx->in_path);
+#elif defined(WIN32)
+    char *lpFileName = ctx->in_path;
     HANDLE hFile;
     HANDLE hMap;
     LPVOID lpBasePtr;
     LARGE_INTEGER liFileSize;
 
-    hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE    /* opening input and output files */_NORMAL, 0);
+    /* opening input and output files */
+    hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if (hFile == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
         exit(1);
@@ -175,7 +174,31 @@ static int open_files(Undo264Context *ctx) {
     ctx->lpBasePtr = lpBasePtr;
     ctx->hMap = hMap;
     ctx->hFile = hFile;
+#else
+    /* portable fallback (wasm):read the whole file */
+    FILE *f = fopen(ctx->in_path, "rb");
+    if (!f) { perror("fopen"); return 1; }
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (size <= 0) {
+        fprintf(stderr, "Error opening input file: file is empty\n");
+        fclose(f);
+        return 1;
+    }
+    ctx->data = malloc(size * sizeof(uint8_t));
+    if (!ctx->data) { perror("malloc"); return 1; }
+    if (fread(ctx->data, 1, size, f) != size) {
+        fprintf(stderr, "Error opening input file: read failed\n");
+        free(ctx->data);
+        fclose(f);
+        return 1;
+    }
+    fclose(f);
+    ctx->data_size = size;
+    ctx->data_is_mapped = false;
 #endif
+
 
 
     /* output .yuv file */
