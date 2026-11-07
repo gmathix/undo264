@@ -12,12 +12,13 @@
 
 typedef enum {
     UNDO_OK              = 0,
-    UNDO_ERR_BITSTREAM   = 1, // invalid per spec
-    UNDO_ERR_UNSUPPORTED = 2, // valid but out of scope, see below
-    UNDO_ERR_LIMIT       = 3, // exceeds limits defined by level_idc
-    UNDO_ERR_NOMEM       = 4,
-    UNDO_ERR_INTERNAL    = 5,
-    UNDO_ERR_OTHER       = 6,
+/*  SANITIZER_ERR        = 1, */
+    UNDO_ERR_BITSTREAM   = 2, // invalid per spec
+    UNDO_ERR_UNSUPPORTED = 3, // valid but out of scope, see below
+    UNDO_ERR_LIMIT       = 4, // exceeds limits defined by level_idc
+    UNDO_ERR_NOMEM       = 5,
+    UNDO_ERR_INTERNAL    = 6,
+    UNDO_ERR_OTHER       = 7,
 } undo_status ;
 
 /* features out of undo264's scope, returning UNDO_ERR_UNSUPPORTED :
