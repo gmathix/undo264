@@ -31,7 +31,7 @@
 
 #include <sys/stat.h>
 
-#include "util/error.h"
+#include "error.h"
 
 #ifdef UNIX
 #include <unistd.h>

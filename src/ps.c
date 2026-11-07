@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "dequant.h"
-#include "util/error.h"
+#include "error.h"
 #include "util/expgolomb.h"
 
 

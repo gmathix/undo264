@@ -7,7 +7,7 @@
 
 
 #include "../global.h"
-#include "error.h"
+#include "../error.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -11,12 +11,13 @@
 #include <stdarg.h>
 
 typedef enum {
-    UNDO_OK = 0,
-    UNDO_ERR_BITSTREAM,   // invalid per spec
-    UNDO_ERR_UNSUPPORTED, // valid but out of scope, see below
-    UNDO_ERR_LIMIT,       // exceeds limits defined by level_idc
-    UNDO_ERR_NOMEM,
-    UNDO_ERR_INTERNAL,
+    UNDO_OK              = 0,
+    UNDO_ERR_UNSUPPORTED = 1, // valid but out of scope, see below
+    UNDO_ERR_BITSTREAM   = 2, // invalid per spec
+    UNDO_ERR_LIMIT       = 3, // exceeds limits defined by level_idc
+    UNDO_ERR_NOMEM       = 4,
+    UNDO_ERR_INTERNAL    = 5,
+    UNDO_ERR_OTHER       = 6,
 } undo_status ;
 
 /* features out of undo264's scope, returning UNDO_ERR_UNSUPPORTED :
