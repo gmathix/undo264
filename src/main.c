@@ -45,12 +45,12 @@ static void print_usage(void) {
 
 #define CLI_ERR(message) \
     fprintf(stderr, message); \
-    return 1;
+    return 1+UNDO_ERR_OTHER;
 
 static int parse_options(int argc, char *argv[], Undo264Context *ctx) {
     if (argc == 1) {
         print_usage();
-        exit(1);
+        exit(1+UNDO_ERR_OTHER);
     }
 
     bool input_file_specified = false;
@@ -86,7 +86,7 @@ static int parse_options(int argc, char *argv[], Undo264Context *ctx) {
         } else {
             fprintf(stderr, "unrecognized option : %s\n", arg);
             print_usage();
-            return 1;
+            return 1+UNDO_ERR_OTHER;
         }
     }
 
@@ -102,7 +102,7 @@ static int open_files(Undo264Context *ctx) {
     FILE *test_input = fopen(ctx->in_path, "rb");
     if (!test_input) {
         fprintf(stderr, "input file not found: %s\n", ctx->in_path);
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
     fclose(test_input);
 
@@ -112,14 +112,14 @@ static int open_files(Undo264Context *ctx) {
     int fd = open(ctx->in_path, O_RDONLY);
     if (fd < 0) {
         perror("open");
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
     struct stat st;
     fstat(fd, &st);
     if (st.st_size == 0) {
         fprintf(stderr, "Opening input file : file is empty\n");
         close(fd);
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
     ctx->data_size = st.st_size;
 
@@ -127,7 +127,7 @@ static int open_files(Undo264Context *ctx) {
     close(fd);
     if (ctx->data == MAP_FAILED) {
         perror("mmap");
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
     madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
     ctx->data_is_mapped = true;
@@ -142,24 +142,24 @@ static int open_files(Undo264Context *ctx) {
     hFile = CreateFile(lpFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if (hFile == INVALID_HANDLE_VALUE) {
         fprintf(stderr, "Opening input file : CreateFile failed with error %d\n", GetLastError());
-        exit(1);
+        return 1+UNDO_ERR_INTERNAL;
     }
     if (!GetFileSizeEx(hFile, &liFileSize)) {
         fprintf(stderr, "Opening input file : GetFileSizeEx failed with error %d\n", GetLastError());
         CloseHandle(hFile);
-        exit(1);
+        return 1+UNDO_ERR_INTERNAL;
     }
     if (liFileSize.QuadPart == 0) {
         fprintf(stderr, "Opening input file : file is empty\n");
         CloseHandle(hFile);
-        exit(1);
+        return 1+UNDO_ERR_INTERNAL;
     }
 
     hMap = CreateFileMapping(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
     if (hMap == 0) {
         fprintf(stderr, "Opening input file : CreateFileMapping failed with error %d\n", GetLastError());
         CloseHandle(hFile);
-        exit(1);
+        return 1+UNDO_ERR_INTERNAL;
     }
 
     lpBasePtr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
@@ -167,7 +167,7 @@ static int open_files(Undo264Context *ctx) {
         fprintf(stderr, "Opening input file : MapViewOfFile failed with error %d\n", GetLastError());
         CloseHandle(hFile);
         CloseHandle(hMap);
-        exit(1);
+        return 1+UNDO_ERR_INTERNAL;
     }
     ctx->data = lpBasePtr;
     ctx->data_size = (size_t)liFileSize.QuadPart;
@@ -177,22 +177,22 @@ static int open_files(Undo264Context *ctx) {
 #else
     /* portable fallback (wasm):read the whole file */
     FILE *f = fopen(ctx->in_path, "rb");
-    if (!f) { perror("fopen"); return 1; }
+    if (!f) { perror("fopen"); return 1+UNDO_ERR_INTERNAL; }
     fseek(f, 0, SEEK_END);
     size_t size = ftell(f);
     fseek(f, 0, SEEK_SET);
     if (size <= 0) {
         fprintf(stderr, "Error opening input file: file is empty\n");
         fclose(f);
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
     ctx->data = malloc(size * sizeof(uint8_t));
-    if (!ctx->data) { perror("malloc"); return 1; }
+    if (!ctx->data) { perror("malloc"); return 1+UNDO_ERR_INTERNAL; }
     if (fread(ctx->data, 1, size, f) != size) {
         fprintf(stderr, "Error opening input file: read failed\n");
         free(ctx->data);
         fclose(f);
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
     fclose(f);
     ctx->data_size = size;
@@ -206,7 +206,7 @@ static int open_files(Undo264Context *ctx) {
         ctx->out_file = fopen(ctx->out_path, "wb");
         if (!ctx->out_file) {
             perror("fopen");
-            return 1;
+            return 1+UNDO_ERR_INTERNAL;
         }
         setvbuf(ctx->out_file, NULL, _IOFBF, (size_t)(8 * 1920*1080*1.5)); // 8 frame buffer for HD
     }
@@ -216,7 +216,7 @@ static int open_files(Undo264Context *ctx) {
         ctx->info_out_file = fopen(ctx->info_out_path, "wb");
         if (!ctx->info_out_file) {
             perror("fopen");
-            return 1;
+            return 1+UNDO_ERR_INTERNAL;
         }
     }
 
@@ -230,11 +230,11 @@ int main(int argc, char *argv[]) {
     Undo264Context *undo264ctx = undo264_context_make();
     if (!undo264ctx) {
         perror("calloc");
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
 
     if (parse_options(argc, argv, undo264ctx) != 0) {
-        return 1;
+        return 1+UNDO_ERR_INTERNAL;
     }
 
 
