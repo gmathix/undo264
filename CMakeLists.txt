@@ -86,6 +86,7 @@ set(SANITIZE "" CACHE STRING "Comma-separated sanitizers for -fsanitize=, e.g. a
 option(BUILD_TOOLS "Build gen_rgb_video / compare_streams helper tools" ON)
 option(COPY_MINGW_RUNTIME "MinGW: copy runtime DLLs next to the executables after building" OFF)
 option(BUILD_FUZZERS "Build the fuzz target (needs clang for libFuzzer)" OFF)
+option(BUILD_REPLAY_TARGETS "Build replay_asan / replay_ubsan / replay_msan (one sanitizer each; Clang on Linux)" OFF)
 
 
 set(UNDO264_SOURCES
@@ -217,6 +218,51 @@ if(BUILD_FUZZERS)
     add_executable(replay_main fuzzing/replay_main.c fuzzing/fuzz_target.c)
     target_link_libraries(replay_main PRIVATE undo264_core)
 endif()
+
+# ---- Replay targets: one executable per sanitizer ----------------------------
+# Each variant gets its own instrumented copy of the core library, since MSan
+# needs every translation unit instrumented (mixing would give false positives).
+function(undo264_add_replay_target suffix sanitizer)
+    set(_compile_flags -fsanitize=${sanitizer} -fno-omit-frame-pointer -g)
+    set(_link_flags    -fsanitize=${sanitizer})
+
+    if(sanitizer STREQUAL "memory")
+        list(APPEND _compile_flags -fsanitize-memory-track-origins=2)  # report where uninit values came from
+    elseif(sanitizer STREQUAL "undefined")
+        list(APPEND _compile_flags -fno-sanitize-recover=undefined)    # abort on the first UB, like ASan/MSan
+    endif()
+
+    set(_core undo264_core_${suffix})
+    add_library(${_core} STATIC ${UNDO264_SOURCES})
+    target_include_directories(${_core} PUBLIC src)
+    target_link_libraries(${_core} PUBLIC
+            ${UNDO264_LIBM} undo264_warnings undo264_link)
+    target_compile_definitions(${_core} PUBLIC
+            $<$<CONFIG:Debug,DebugASAN>:SLICES_LOG=1>
+            $<$<BOOL:${WIN32}>:WIN32>
+            $<$<BOOL:${UNIX}>:UNIX>)
+    target_compile_options(${_core} PUBLIC ${_compile_flags} -UNDEBUG)
+    target_link_options(${_core} PUBLIC ${_link_flags})
+
+    add_executable(replay_${suffix} fuzzing/replay_main.c fuzzing/fuzz_target.c)
+    target_link_libraries(replay_${suffix} PRIVATE ${_core})
+endfunction()
+
+if(BUILD_REPLAY_TARGETS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "BUILD_REPLAY_TARGETS needs Clang (MSan is Clang-only). "
+                "Use -DUNDO264_COMPILER=clang in a fresh build directory.")
+    endif()
+    if(NOT UNDO264_OS STREQUAL "linux")
+        message(FATAL_ERROR "BUILD_REPLAY_TARGETS is Linux-only (MemorySanitizer is not supported on ${UNDO264_OS}).")
+    endif()
+
+    undo264_add_replay_target(asan  address)
+    undo264_add_replay_target(ubsan undefined)
+    undo264_add_replay_target(msan  memory)
+endif()
+
+
 
 # ---- Optional helper tools ---------------------------------------------------
 if(BUILD_TOOLS)
