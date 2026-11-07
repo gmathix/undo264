@@ -27,13 +27,21 @@
 #include "avx2/deblock_avx2.c"
 
 
+
+
 static void dsp_init_x86(const Undo264Context *ctx) {
     DSPContext *dsp = ctx->dsp;
 
+    #ifndef WASM
     __builtin_cpu_init();
+    #endif
 
     /* sse4 */
+    #ifdef WASM
+        {
+    #else
     if (__builtin_cpu_supports("sse4.1") && ctx->cli_options->use_sse) {
+    #endif
         dsp->weigh_bi_funcs[BLOCK_16x16] = weigh_bi_sse_16x16;
         dsp->weigh_bi_funcs[BLOCK_16x8]  = weigh_bi_sse_16x8;
         dsp->weigh_bi_funcs[BLOCK_8x16]  = weigh_bi_sse_8x16;
@@ -80,8 +88,10 @@ static void dsp_init_x86(const Undo264Context *ctx) {
     }
 
     /* avx2 */
-    if (__builtin_cpu_supports("avx2") && ctx->cli_options->use_avx2) {
+    #ifndef WASM
+    if (__builtin_cpu_supports("avx2") && ctx->cli_options->use_avx2) { // AVX2 path will probably not be selected at runtime in wasm anyway
         dsp->deblock_edge_weak_luma_h = deblock_edge_weak_luma_h_avx2;
         dsp->deblock_edge_weak_luma_v = deblock_edge_weak_luma_v_avx2;
     }
+    #endif
 }
