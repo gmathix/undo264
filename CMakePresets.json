@@ -24,29 +24,31 @@
       }
     },
     {
-      "name": "debug_asan",
-      "displayName": "Debug + sanitizers (Unix Makefiles)",
+      "name": "debug_sanitize",
+      "displayName": "Debug + sanitizers (ASan+UBSan by default; override with -DENABLE_*)",
       "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/debug_asan",
+      "binaryDir": "${sourceDir}/build/debug_sanitize",
       "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "DebugASAN",
-        "SANITIZE": "address,undefined",
-        "USE_NATIVE_ARCH": "OFF"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_NATIVE_ARCH": "OFF",
+        "ENABLE_ASAN": "ON",
+        "ENABLE_UBSAN": "ON",
+        "ENABLE_MSAN": "OFF"
       }
     },
     {
-      "name": "replay_main",
-      "displayName": "Debug + sanitizers (Unix Makefiles) with Clang",
+      "name": "replay_targets",
+      "displayName": "Replay targets: ASan / UBSan / MSan (Clang, Linux)",
       "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/replay_main",
-      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "binaryDir": "${sourceDir}/build/replay_targets",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "DebugASAN",
-        "SANITIZE": "address,undefined",
+        "CMAKE_BUILD_TYPE": "Debug",
         "USE_NATIVE_ARCH": "OFF",
-        "BUILD_FUZZERS": "ON",
-        "UNDO264_COMPILER": "clang"
+        "UNDO264_COMPILER": "clang",
+        "BUILD_REPLAY_TARGETS": "ON",
+        "BUILD_TOOLS": "OFF"
       }
     },
     {
@@ -77,6 +79,8 @@
   "buildPresets": [
     { "name": "release", "configurePreset": "release" },
     { "name": "debug", "configurePreset": "debug" },
+    { "name": "debug_sanitize", "configurePreset": "debug_sanitize" },
+    { "name": "replay_targets", "configurePreset": "replay_targets", "targets": ["replay_asan", "replay_ubsan", "replay_msan"]},
     { "name": "win-release", "configurePreset": "win-release" },
     { "name": "win-debug", "configurePreset": "win-debug" }
   ]

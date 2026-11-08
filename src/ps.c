@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "dequant.h"
-#include "util/error.h"
+#include "error.h"
 #include "util/expgolomb.h"
 
 
@@ -413,6 +413,8 @@ int decode_vui (SPS *sps, Undo264Context *ctx) {
         uint32_t max_num_reorder_frames = read_ue(br);
         sps->max_dec_frame_buffering = read_ue(br);
     }
+
+    return 0;
 }
 
 

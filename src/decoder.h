@@ -8,7 +8,7 @@
 
 #include "global.h"
 
-#include "util/error.h"
+#include "error.h"
 
 #ifdef WIN32
 #include <Windows.h>
