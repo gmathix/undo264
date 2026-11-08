@@ -368,7 +368,7 @@ void transform_luma_16x16_sse(Macroblock *mb, const Undo264Context *ctx) {
                   if (qp >= 24) scaling_residual_4x4_lshift_sse(qp, &r01, &r23, scale01, scale23);
                   else          scaling_residual_4x4_rshift_min_sse(qp, &r01, &r23, scale01, scale23);
             }
-            ((int16_t*)&r01)[0] = c[0][0];
+            r01 = _mm_insert_epi16(r01, c[0][0], 0);
 
             int blkY = (i>>2) << 2;
             int blkX = (i&3) << 2;
@@ -441,7 +441,7 @@ void transform_chroma_sse(Macroblock *mb, const Undo264Context *ctx) {
                               if (qp >= 24) scaling_residual_4x4_lshift_sse(qp, &r01, &r23, scale01, scale23);
                               else          scaling_residual_4x4_rshift_min_sse(qp, &r01, &r23, scale01, scale23);
                         }
-                        ((int16_t*)&r01)[0] = coeffs[0][0];
+                        r01 = _mm_insert_epi16(r01, coeffs[0][0], 0);
 
                         int blkY = (i4x4>>1) << 2;
                         int blkX = (i4x4&1) << 2;
