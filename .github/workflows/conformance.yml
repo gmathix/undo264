@@ -1,0 +1,59 @@
+name: conformance
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  vectors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v6
+        id: vectors
+        with:
+          path: |
+            test/conformance/AVCv1
+            test/conformance/FRExt
+          key: vectors-${{ hashFiles('test/conformance/download_vectors.sh') }}
+      - if: steps.vectors.outputs.cache-hit != 'true'
+        working-directory: test/conformance
+        run: bash download_vectors.sh 
+
+  conformance:
+    needs: vectors
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [release, asan, ubsan, msan]
+        suite: [AVCv1, FRExt]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg clang
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            test/conformance/AVCv1
+            test/conformance/FRExt
+          key: vectors-${{ hashFiles('test/conformance/download_vectors.sh') }}
+          fail-on-cache-miss: true
+
+      - name: Conformance (${{ matrix.target }}, ${{ matrix.suite}} )
+        working-directory: test/conformance
+        run: ./conformance_test.sh --target ${{ matrix.target }} --catch-san-err ${{ matrix.suite }}
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.target }}-${{ matrix.suite }}
+          path: test/conformance/**/*.log
+        
