@@ -29,8 +29,6 @@ typedef struct Profiler {
 void profiler_init(Profiler *prf);
 void profiler_start_frame(Profiler *prf);
 void profiler_end_frame(Profiler *prf);
-void profiler_start_mb(Profiler *prf);
-void profiler_end_mb(Profiler *prf);
 
 long long get_total_frame_microseconds(Profiler *prf);
 long long get_total_mb_microseconds(Profiler *prf);

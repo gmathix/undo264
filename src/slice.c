@@ -1112,7 +1112,6 @@ void CAFUNC(decode_slice,
                     reset_mb(mb, mbAddr, ctx);
                     derive_macroblock_neighbors(mb, sh->first_mb, ctx);
             #endif
-                    profiler_start_mb(ctx->prf);
                     mb->mb_type = MB_TYPE_SKIP;
                     mb->slice_type = sh->slice_type;
                     mb->QPY = mb->mbAddr == (int)sh->first_mb
@@ -1158,8 +1157,6 @@ void CAFUNC(decode_slice,
 
                     ctx->prevQPY = mb->QPY;
                     ctx->current_slice->num_mbs++;
-
-                    profiler_end_mb(ctx->prf);
                 }
 
                 #if !CABAC
@@ -1176,8 +1173,6 @@ void CAFUNC(decode_slice,
 
                 read_u(br, 1); // mb_field_flag
             }
-
-            profiler_start_mb(ctx->prf);
 
             Macroblock *mb = ctx->currMb;
 
@@ -1200,11 +1195,7 @@ void CAFUNC(decode_slice,
             }
 
 
-
-
             ctx->current_slice->num_mbs++;
-
-            profiler_end_mb(ctx->prf);
         }
 
 
