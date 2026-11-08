@@ -238,7 +238,7 @@ static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, Undo26
     uint8_t *cr_base_dst   = &pic->cr[chroma_pos];
 
     int bS_list[4] = {0, 0, 0, 0};
-    int bS_list_all[2][4][4] = {};
+    int bS_list_all[2][4][4] = {0};
 
     uint8_t alphaLeft[3], betaLeft[3], indexALeft[3];
     uint8_t alphaTop[3],  betaTop[3],  indexATop[3];

@@ -49,7 +49,6 @@ static bool greaterThan(int field, int ref)    { return field > ref; }
 static bool lowerThan(int field, int ref)      { return field < ref; }
 static bool greaterOrEqual(int field, int ref) { return field >= ref; }
 static bool lowerOrEqual(int field, int ref)   { return field <= ref; }
-static bool equalTo(int field, int ref)        { return field == ref; }
 static bool dontGiveAShit(int field, int ref)  { return true || field || ref; } // just to suppress to compiler warning
 
 
@@ -651,10 +650,9 @@ static void ref_pic_list_modif_st(Slice *slice, bool is_l0, int *refIdxLX, int m
 }
 
 // puts a long-term ref picture at position refIdxLX (advancing 0..num_ref_idx_active-1)
-static void ref_pic_list_modif_lt(Slice *slice, bool is_l0,  int *refIdxLX, int modif_idc, int lt_pic_num, int *maxLtIdx, const Undo264Context *ctx) {
+static void ref_pic_list_modif_lt(Slice *slice, bool is_l0,  int *refIdxLX, int lt_pic_num, int *maxLtIdx, const Undo264Context *ctx) {
     DPB *dpb = ctx->dpb;
 
-    int picNumLXPred = ctx->curr_pic->pic_num;
     int num_ref_idx_lX_active = is_l0 ? slice->sh->num_ref_idx_l0_active_minus1+1 : slice->sh->num_ref_idx_l1_active_minus1;
     Picture **lX = is_l0 ? dpb->refs[L0] : dpb->refs[L1];
 
@@ -692,7 +690,7 @@ void ref_pic_list_modification(uint8_t type, Slice *slice, int maxFrameNum, int 
                     ref_pic_list_modif_st(slice, true, &refIdxL0, modif_idc, abs_diff, maxFrameNum, ctx);
                 } else if (modif_idc == 2) {
                     uint32_t lt_pic_num = read_ue(br);
-                    ref_pic_list_modif_lt(slice, true, &refIdxL0, modif_idc, lt_pic_num, maxLtIdx, ctx);
+                    ref_pic_list_modif_lt(slice, true, &refIdxL0, lt_pic_num, maxLtIdx, ctx);
                 }
             } while (modif_idc != 3);
         } else {
@@ -717,7 +715,7 @@ void ref_pic_list_modification(uint8_t type, Slice *slice, int maxFrameNum, int 
                     ref_pic_list_modif_st(slice, false, &refIdxL1, modif_idc, abs_diff, maxFrameNum, ctx);
                 } else if (modif_idc == 2) {
                     uint32_t lt_pic_num = read_ue(br);
-                    ref_pic_list_modif_lt(slice, false, &refIdxL1, modif_idc, lt_pic_num, maxLtIdx, ctx);
+                    ref_pic_list_modif_lt(slice, false, &refIdxL1, lt_pic_num, maxLtIdx, ctx);
                 }
             } while (modif_idc != 3);
         } else {
@@ -814,16 +812,16 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
                     printf("mmco:%d\n", mmco);
                 #endif
                 if (mmco == 1 || mmco == 3) {
-                    uint32_t diff_pic_nums = read_ue(br) + 1;
+                    read_ue(br); // diff_pic_nums - 1
                 }
                 if (mmco == 2) {
-                    uint32_t lt_pic_num = read_ue(br);
+                    read_ue(br); // lt_pic_num
                 }
                 if (mmco == 3 || mmco == 6) {
-                    uint32_t lt_frame_idx = read_ue(br);
+                    read_ue(br); // lt_frame_idx
                 }
                 if (mmco == 4) {
-                    uint32_t max_lt_frame_idx = read_ue(br) - 1;
+                    read_ue(br); // max_lt_frame_idx + 1
                 }
             } while (mmco != 0);
         } else {
@@ -932,7 +930,7 @@ void store_picture(DPB *dpb, Picture *pic) {
     } else {
         if (!pic->sh->adaptive_ref_pic_marking_mode_flag) {
             if (pic->nal_ref_idc != 0) {
-                int idx = sliding_window_marking(pic->sh, dpb);
+                sliding_window_marking(pic->sh, dpb);
             }
         } else {
             // MMCOs

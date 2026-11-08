@@ -52,11 +52,11 @@ void  residual_block_cavlc (Macroblock *mb, int blkIdx, int iCbCr, int bt,
     SliceHeader *sh, Undo264Context *ctx);
 
 
-void  coeff_token    (Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, int *startIdx, int *endIdx, bool isLuma,
+void  coeff_token    (Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, bool isLuma,
                         int *totalCoeff, int *trailingOnes, int *nC,
                         SliceHeader *sh, const Undo264Context *ctx);
-void  parse_level    (int16_t levelVal[], int blkIdx, int bt, int totalCoeff, int trailingOnes, const Undo264Context *ctx);
-void  parse_run      (int16_t runVal[], int blkIdx, int bt,  int totalCoeff, int maxNumCoeff, int startIdx, int endIdx, SliceHeader *sh, const Undo264Context *ctx);
-void  reconstruct    (const int16_t levelVal[], int blkIdx, int bt, const int16_t runVal[], int16_t coeffLevel[], int startIdx, int totalCoeff);
+void  parse_level    (int16_t levelVal[], int totalCoeff, int trailingOnes, const Undo264Context *ctx);
+void  parse_run      (int16_t runVal[], int totalCoeff, int maxNumCoeff, int startIdx, int endIdx, const Undo264Context *ctx);
+void  reconstruct    (const int16_t levelVal[], const int16_t runVal[], int16_t coeffLevel[], int startIdx, int totalCoeff);
 
 #endif //H264_CAVLC_H

@@ -304,26 +304,24 @@ void residual_block_cavlc(Macroblock *mb, int blkIdx, int iCbCr, int bt, int16_t
     int totalCoeff;
     int trailingOnes;
     int nC;
-    coeff_token(mb, blkIdx, iCbCr, bt, &startIdx, &endIdx, isLuma, &totalCoeff, &trailingOnes, &nC, sh, ctx);
+    coeff_token(mb, blkIdx, iCbCr, bt, isLuma, &totalCoeff, &trailingOnes, &nC, sh, ctx);
 
     static int16_t levelVal[64];
     static int16_t runVal[64];
 
     if (totalCoeff > 0) {
-        parse_level(levelVal, blkIdx, bt, totalCoeff, trailingOnes, ctx);
+        parse_level(levelVal, totalCoeff, trailingOnes, ctx);
 
-        parse_run(runVal, blkIdx, bt, totalCoeff, maxNumCoeff, startIdx, endIdx, sh, ctx);
+        parse_run(runVal, totalCoeff, maxNumCoeff, startIdx, endIdx, ctx);
 
-        reconstruct(levelVal, blkIdx, bt, runVal, coeffLevel, startIdx, totalCoeff);
+        reconstruct(levelVal, runVal, coeffLevel, startIdx, totalCoeff);
     }
 }
 
 
-void coeff_token(Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, int *startIdx, int *endIdx, bool isLuma,
+void coeff_token(Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, bool isLuma,
                  int *totalCoeff, int *trailingOnes, int *nC,
                  SliceHeader *sh, const Undo264Context *ctx) {
-
-    BitReader *br = ctx->br;
 
     if (blockType == CHROMA_DC_LEVEL) *nC = sh->sps->chroma_format_idc * -1;
 
@@ -353,7 +351,7 @@ void coeff_token(Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, int
         else *nC = n.a.av*nA + n.b.av * nB;
     }
 
-    int sym = get_vlc(nc_to_table[*nC + 2], nc_to_index[*nC + 2], br);
+    int sym = get_vlc(nc_to_table[*nC + 2], nc_to_index[*nC + 2], ctx->br);
 
     *totalCoeff = total_coeffs[sym];
     *trailingOnes = trailing_ones[sym];
@@ -367,7 +365,7 @@ void coeff_token(Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, int
 
 
 /* 7.3.5.3.2 */
-void parse_level(int16_t levelVal[], int blkIdx, int bt, int totalCoeff, int trailingOnes, const Undo264Context *ctx) {
+void parse_level(int16_t levelVal[], int totalCoeff, int trailingOnes, const Undo264Context *ctx) {
     BitReader *br = ctx->br;
 
 
@@ -413,7 +411,6 @@ void parse_level(int16_t levelVal[], int blkIdx, int bt, int totalCoeff, int tra
             else    levelVal[i] = (-(int16_t)levelCode-1) >> 1;
 
 
-            int suffixLength_used = suffixLength;
             /* 9 */
             if (suffixLength == 0) suffixLength = 1;
 
@@ -425,7 +422,7 @@ void parse_level(int16_t levelVal[], int blkIdx, int bt, int totalCoeff, int tra
 }
 
 
-void parse_run(int16_t runVal[],int blkIdx,  int bt, int totalCoeff, int maxNumCoeff, int startIdx, int endIdx, SliceHeader *sh, const Undo264Context *ctx) {
+void parse_run(int16_t runVal[], int totalCoeff, int maxNumCoeff, int startIdx, int endIdx, const Undo264Context *ctx) {
     BitReader *br = ctx->br;
 
 
@@ -461,7 +458,7 @@ void parse_run(int16_t runVal[],int blkIdx,  int bt, int totalCoeff, int maxNumC
 }
 
 
-void reconstruct(const int16_t levelVal[], int blkIdx, int bt,  const int16_t runVal[], int16_t coeffLevel[], int startIdx, int totalCoeff) {
+void reconstruct(const int16_t levelVal[], const int16_t runVal[], int16_t coeffLevel[], int startIdx, int totalCoeff) {
     int coeffNum = -1;
     for (int i = totalCoeff-1; i >= 0; i--) {
         coeffNum += runVal[i] + 1;

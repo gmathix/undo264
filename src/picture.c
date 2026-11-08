@@ -8,7 +8,7 @@
 #include "util/dump_info.h"
 
 
-Picture EMPTY_PICTURE = {};
+Picture EMPTY_PICTURE = {0};
 
 
 

@@ -19,8 +19,7 @@ typedef void (*intra_pred_func)
 typedef void (*intra_pred_chroma_func)
     (uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
-    const uint8_t *top_cr, const uint8_t *left_cr,
-    int bitDepth, int chroma_at);
+    const uint8_t *top_cr, const uint8_t *left_cr);
 
 
 
@@ -75,20 +74,16 @@ void plane_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
 
 void vert_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
-    const uint8_t *top_cr, const uint8_t *left_cr,
-    int bitDepth, int chroma_at);
+    const uint8_t *top_cr, const uint8_t *left_cr);
 void hor_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
-    const uint8_t *top_cr, const uint8_t *left_cr,
-    int bitDepth, int chroma_at);
+    const uint8_t *top_cr, const uint8_t *left_cr);
 void dc_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
-    const uint8_t *top_cr, const uint8_t *left_cr,
-    int bitDepth, int chroma_at);
+    const uint8_t *top_cr, const uint8_t *left_cr);
 void plane_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
-    const uint8_t *top_cr, const uint8_t *left_cr,
-    int bitDepth, int chroma_at);
+    const uint8_t *top_cr, const uint8_t *left_cr);
 
 
 
