@@ -310,8 +310,8 @@ void transform_luma_8x8_sse(Macroblock *mb, int i8x8, const Undo264Context *ctx)
       int scaleIndex = IS_INTER(mb->mb_type) > 0;
       int16_t (*scale) [8] = ctx->levelScale8x8[scaleIndex][qp];
 
-      if (qp >= 36)   scaling_residual_8x8_lshift(qp/6-6, scale, c, d, true, ctx);
-      else            scaling_residual_8x8_rshift_min(qp/6-6, scale, c, d, true, ctx);
+      if (qp >= 36)   scaling_residual_8x8_lshift(qp/6-6, scale, c, d);
+      else            scaling_residual_8x8_rshift_min(qp/6-6, scale, c, d);
 
       idct_8x8_sse(d, &mb->p_pic->luma[(mb->mb_y*16 + blkY)*stride + mb->mb_x*16 + blkX], stride, ctx->ps->sps->bit_depth_luma);
 }

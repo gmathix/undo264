@@ -147,8 +147,8 @@ void transform_luma_4x4(Macroblock *mb, int blkIdx, const Undo264Context *ctx) {
       int scaleIndex = 3 * (IS_INTER(mb->mb_type) > 0);
       int16_t (*scale) [4] = ctx->levelScale4x4[scaleIndex][qp];
 
-      if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d, true, ctx);
-      else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d, true, ctx);
+      if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d);
+      else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d);
 
 
       idct_4x4(
@@ -173,8 +173,8 @@ void transform_luma_8x8(Macroblock *mb, int i8x8, const Undo264Context *ctx) {
       int scaleIndex = IS_INTER(mb->mb_type) > 0;
       int16_t (*scale) [8] = ctx->levelScale8x8[scaleIndex][qp];
 
-      if (qp >= 36)   scaling_residual_8x8_lshift(qp/6-6, scale, c, d, true, ctx);
-      else            scaling_residual_8x8_rshift_min(qp/6-6, scale, c, d, true, ctx);
+      if (qp >= 36)   scaling_residual_8x8_lshift(qp/6-6, scale, c, d);
+      else            scaling_residual_8x8_rshift_min(qp/6-6, scale, c, d);
 
       idct_8x8(
             d,
@@ -221,8 +221,8 @@ void transform_luma_16x16(Macroblock *mb, const Undo264Context *ctx) {
             if (mb->residuals.cbp_luma != 0) {
                   inverse_4x4_coeff_scaling_scan_dc(mb->residuals.luma_16x16_AC[i], dcY[i>>2][i&3], c);
 
-                  if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d, true, ctx);
-                  else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d, true, ctx);
+                  if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d);
+                  else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d);
                   d[0][0] = c[0][0];
             } else {
                   memset(d, 0, sizeof d);
@@ -284,8 +284,8 @@ void transform_chroma(Macroblock *mb, const Undo264Context *ctx) {
 
                         int16_t (*scale) [4] = ctx->levelScale4x4[scaleIndex][qp];
 
-                        if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d, false, ctx);
-                        else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d, false, ctx);
+                        if (qp >= 24)   scaling_residual_4x4_lshift(qp/6-4, scale, c, d);
+                        else            scaling_residual_4x4_rshift_min(qp/6-4, scale, c, d);
                         d[0][0] = c[0][0];
 
                         int blkY = (i4x4>>1) << 2;
