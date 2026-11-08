@@ -103,7 +103,8 @@ static always_inline uint8_t QPEL_HELPER(horizontal_filter, int16_t *qpel_pass_b
 
 // naming : qpel_yx_WxH with y = vertical fractional offset and x = horizontal fractional offset
 
-void QPEL_FUNC(0, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // G
+void QPEL_FUNC(0, 0, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // G
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             dst[x] = ref[(2+y)*(WIDTH+5) + 2+x];
@@ -112,7 +113,8 @@ void QPEL_FUNC(0, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(0, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // a
+void QPEL_FUNC(0, 1, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // a
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int b = QPEL_HELPER(horizontal_pass, ref, 2+y, 2+x);
@@ -122,7 +124,8 @@ void QPEL_FUNC(0, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(0, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // b
+void QPEL_FUNC(0, 2, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // b
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             dst[x] = QPEL_HELPER(horizontal_pass, ref, 2+y, 2+x);
@@ -131,7 +134,8 @@ void QPEL_FUNC(0, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(0, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // c
+void QPEL_FUNC(0, 3, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // c
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int b = QPEL_HELPER(horizontal_pass, ref, 2+y, 2+x);
@@ -141,7 +145,8 @@ void QPEL_FUNC(0, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(1, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // d
+void QPEL_FUNC(1, 0, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // d
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int h = QPEL_HELPER(vertical_pass, ref, 2+y, 2+x);
@@ -151,7 +156,8 @@ void QPEL_FUNC(1, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(1, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // e
+void QPEL_FUNC(1, 1, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // e
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int b = QPEL_HELPER(horizontal_pass, ref, 2+y, 2+x);
@@ -162,7 +168,8 @@ void QPEL_FUNC(1, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(1, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // f
+void QPEL_FUNC(1, 2, const uint8_t *restrict ref, uint8_t *restrict dst,
+               int16_t *restrict qpel_pass_buf, int stride) { // f
     for (int y = 0; y < HEIGHT; y++) {
         QPEL_HELPER(precompute_vertical_passes, ref, qpel_pass_buf, 2+y);
         for (int x = 0; x < WIDTH; x++) {
@@ -174,7 +181,8 @@ void QPEL_FUNC(1, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(1, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // g
+void QPEL_FUNC(1, 3, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // g
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int b = QPEL_HELPER(horizontal_pass, ref, 2+y, 2+x);
@@ -185,7 +193,8 @@ void QPEL_FUNC(1, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(2, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // h
+void QPEL_FUNC(2, 0, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // h
     for (int y = 0; y < HEIGHT; y++){
         for (int x = 0; x < WIDTH; x++) {
             dst[x] = QPEL_HELPER(vertical_pass, ref, 2+y, 2+x);
@@ -194,7 +203,8 @@ void QPEL_FUNC(2, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(2, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // i
+void QPEL_FUNC(2, 1, const uint8_t *restrict ref, uint8_t *restrict dst,
+               int16_t *restrict qpel_pass_buf, int stride) { // i
     for (int y = 0; y < HEIGHT; y++) {
         QPEL_HELPER(precompute_vertical_passes, ref, qpel_pass_buf, 2+y);
         for (int x = 0; x < WIDTH; x++) {
@@ -206,7 +216,8 @@ void QPEL_FUNC(2, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(2, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // j
+void QPEL_FUNC(2, 2, const uint8_t *restrict ref, uint8_t *restrict dst,
+               int16_t *restrict qpel_pass_buf, int stride) { // j
     for (int y = 0; y < HEIGHT; y++) {
         QPEL_HELPER(precompute_vertical_passes, ref, qpel_pass_buf, 2+y);
         for (int x = 0; x < WIDTH; x++) {
@@ -216,7 +227,8 @@ void QPEL_FUNC(2, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(2, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // k
+void QPEL_FUNC(2, 3, const uint8_t *restrict ref, uint8_t *restrict dst,
+               int16_t *restrict qpel_pass_buf, int stride) { // k
     for (int y = 0; y < HEIGHT; y++) {
         QPEL_HELPER(precompute_vertical_passes, ref, qpel_pass_buf, 2+y);
         for (int x = 0; x < WIDTH; x++) {
@@ -228,7 +240,8 @@ void QPEL_FUNC(2, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(3, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // n
+void QPEL_FUNC(3, 0, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // n
     for (int y = 0; y < HEIGHT; y++){
         for (int x = 0; x < WIDTH; x++) {
             int h = QPEL_HELPER(vertical_pass, ref, 2+y, 2+x);
@@ -238,7 +251,8 @@ void QPEL_FUNC(3, 0, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(3, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // p
+void QPEL_FUNC(3, 1, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // p
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int h = QPEL_HELPER(vertical_pass, ref, 2+y, 2+x);
@@ -249,7 +263,8 @@ void QPEL_FUNC(3, 1, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(3, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // q
+void QPEL_FUNC(3, 2, const uint8_t *restrict ref, uint8_t *restrict dst,
+               int16_t *restrict qpel_pass_buf, int stride) { // q
     for (int y = 0; y < HEIGHT; y++) {
         QPEL_HELPER(precompute_vertical_passes, ref, qpel_pass_buf, 2+y);
         for (int x = 0; x < WIDTH; x++) {
@@ -261,7 +276,8 @@ void QPEL_FUNC(3, 2, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t
     }
 }
 
-void QPEL_FUNC(3, 3, const uint8_t *restrict ref, uint8_t *restrict dst, int16_t *restrict qpel_pass_buf, int stride) { // r
+void QPEL_FUNC(3, 3, const uint8_t *restrict ref, uint8_t *restrict dst,
+               unused int16_t *restrict qpel_pass_buf, int stride) { // r
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             int m = QPEL_HELPER(vertical_pass, ref, 2+y, 2+x+1);

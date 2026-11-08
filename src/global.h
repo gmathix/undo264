@@ -25,6 +25,8 @@
 
 #define always_inline inline __attribute__((always_inline))
 #define flatten __attribute__((flatten))
+#define unused __attribute__((unused))
+#define dontuse(a) (void)(a);
 #define OPTIMIZE_O0   __attribute__((optimize("O0")))
 #define OPTIMIZE_O1   __attribute__((optimize("O1")))
 #define OPTIMIZE_O2   __attribute__((optimize("O2")))

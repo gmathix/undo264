@@ -157,7 +157,7 @@ int read_coded_block_flag(Macroblock *mb, int blkIdx, int iCbCr, BlockType block
     return cabac_get_bit(ctx, ctxIdx);
 }
 
-int read_significant_coeff_flag(Macroblock *mb, int coeffIdx, BlockType blockType, const Undo264Context *ctx) {
+int read_significant_coeff_flag(int coeffIdx, BlockType blockType, const Undo264Context *ctx) {
     static const int16_t ctxIdxOffset[14] = {105, 105, 105, 105, 105, 402, 484, 484, 484, 660, 528, 528, 528, 718};
     static const int8_t ctxIdxCatOffset[14] = {0, 15, 29, 44, 47, 0, 0, 15, 29, 0, 0, 15, 29, 0};
     static const alignas(64) int8_t ctxIdxInc[2][64] = {
@@ -181,7 +181,7 @@ int read_significant_coeff_flag(Macroblock *mb, int coeffIdx, BlockType blockTyp
     return cabac_get_bit(ctx, ctxIdx);
 }
 
-int read_last_significant_coeff_flag(Macroblock *mb, int coeffIdx, BlockType blockType, const Undo264Context *ctx) {
+int read_last_significant_coeff_flag(int coeffIdx, BlockType blockType, const Undo264Context *ctx) {
     static const int16_t ctxIdxOffset[14] = {166, 166, 166, 166, 166, 417, 572, 572, 572, 690, 616, 616, 616, 748};
     static const int8_t ctxIdxCatOffset[14] = {0, 15, 29, 44, 47, 0, 0, 15, 29, 0, 0, 15, 29, 0};
     static const alignas(64) int8_t ctxIdxInc[2][64] = {
@@ -203,7 +203,7 @@ int read_last_significant_coeff_flag(Macroblock *mb, int coeffIdx, BlockType blo
     return cabac_get_bit(ctx, ctxIdx);
 }
 
-int read_coeff_abs_level(Macroblock *mb, int coeffIdx, int numDecodAbsEq1, int numDecodAbsGt1, BlockType blockType, const Undo264Context *ctx) {
+int read_coeff_abs_level(int numDecodAbsEq1, int numDecodAbsGt1, BlockType blockType, const Undo264Context *ctx) {
     static const int16_t ctxIdxOffset[14] = {227, 227, 227, 227, 227, 426, 952, 952, 952, 708, 982, 982, 982, 766}; // for prefix
     static const int8_t ctxIdxCatOffset[14] = {0, 10, 20, 30, 39, 0, 0, 10, 20, 0, 0, 10, 20, 0};
 
@@ -245,13 +245,15 @@ int read_coeff_abs_level(Macroblock *mb, int coeffIdx, int numDecodAbsEq1, int n
     }
 }
 
-int read_coeff_sign_flag(Macroblock *mb, int blkIdx, BlockType blockType, const Undo264Context *ctx) {
+int read_coeff_sign_flag(const Undo264Context *ctx) {
     // uses bypass, no ctxIdx to compute
     return cabac_get_bit_bypass(ctx);
 }
 
 void residual_block_cabac  (Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, int16_t *coeffLevel,
     int startIdx, int endIdx, int maxNumCoeff, bool isLuma, struct SliceHeader *sh, const Undo264Context *ctx) {
+
+    dontuse(isLuma) dontuse(sh)
 
 
 
@@ -300,9 +302,9 @@ void residual_block_cabac  (Macroblock *mb, int blkIdx, int iCbCr, BlockType blo
         int numCoeff = endIdx + 1;
         int i = startIdx;
         while (i < numCoeff - 1) {
-            significant_coeff_flag[i] = read_significant_coeff_flag(mb, i, blockType, ctx);
+            significant_coeff_flag[i] = read_significant_coeff_flag(i, blockType, ctx);
             if (significant_coeff_flag[i]) {
-                last_significant_coeff_flag[i] = read_last_significant_coeff_flag(mb, i, blockType, ctx);
+                last_significant_coeff_flag[i] = read_last_significant_coeff_flag(i, blockType, ctx);
                 if (last_significant_coeff_flag[i]) {
                     numCoeff = i + 1;
                 }
@@ -310,15 +312,15 @@ void residual_block_cabac  (Macroblock *mb, int blkIdx, int iCbCr, BlockType blo
             i++;
         }
 
-        coeff_abs_level[numCoeff - 1] = read_coeff_abs_level(mb, blkIdx, numDecodAbsEq1, numDecodAbsGt1, blockType, ctx);
-        coeff_sign_flag[numCoeff - 1] = read_coeff_sign_flag(mb, blkIdx, blockType, ctx);
+        coeff_abs_level[numCoeff - 1] = read_coeff_abs_level(numDecodAbsEq1, numDecodAbsGt1, blockType, ctx);
+        coeff_sign_flag[numCoeff - 1] = read_coeff_sign_flag(ctx);
         coeffLevel[numCoeff - 1] = coeff_abs_level[numCoeff - 1] * (1 - 2*coeff_sign_flag[numCoeff - 1]);
         numDecodAbsEq1 += coeff_abs_level[numCoeff-1] == 1;
         numDecodAbsGt1 += coeff_abs_level[numCoeff-1] > 1;
         for (int i = numCoeff - 2; i >= startIdx; i--) {
             if (significant_coeff_flag[i]) {
-                coeff_abs_level[i] = read_coeff_abs_level(mb, blkIdx, numDecodAbsEq1, numDecodAbsGt1, blockType, ctx);
-                coeff_sign_flag[i] = read_coeff_sign_flag(mb, blkIdx, blockType, ctx);
+                coeff_abs_level[i] = read_coeff_abs_level(numDecodAbsEq1, numDecodAbsGt1, blockType, ctx);
+                coeff_sign_flag[i] = read_coeff_sign_flag(ctx);
                 coeffLevel[i] = coeff_abs_level[i] * (1 - 2*coeff_sign_flag[i]);
                 numDecodAbsEq1 += coeff_abs_level[i] == 1;
                 numDecodAbsGt1 += coeff_abs_level[i] > 1;

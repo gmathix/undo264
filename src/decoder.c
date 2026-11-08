@@ -237,9 +237,9 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
             if (sh->pps->cabac_flag) {
-                decode_slice_cabac(sh, nal_unit, ctx);
+                decode_slice_cabac(sh, ctx);
             } else {
-                decode_slice_cavlc(sh, nal_unit, ctx);
+                decode_slice_cavlc(sh, ctx);
             }
 
             Slice *slice = ctx->current_slice;

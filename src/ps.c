@@ -97,8 +97,6 @@ int decode_sps(Undo264Context *ctx) {
         sps->bit_depth_luma_minus8 = read_ue(br);
         sps->bit_depth_chroma_minus8 = read_ue(br);
 
-        uint32_t transform_bypass = read_u(br, 1);
-
         uint32_t scaling_matrix_present = read_u(br, 1);
         ctx->seqScalingMatrixPresent = scaling_matrix_present;
         if (scaling_matrix_present) {

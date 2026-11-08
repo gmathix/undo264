@@ -35,8 +35,6 @@ void CAFUNC(read_residual_luma,
     int startIdx, int endIdx,
     SliceHeader *sh, Undo264Context *ctx) {
 
-    BitReader *br = ctx->br;
-
 
     if (startIdx == 0 && IS_INTRA16x16(type)) {
         CACALL(residual_block, mb, 0, 0, LUMA_INTRA_16x16_DC_LEVEL, mb->residuals.luma_16x16_DC, 0, 15, 16, true, sh, ctx);
@@ -88,8 +86,6 @@ void CAFUNC(read_residual,
     Macroblock *mb, int type, int t_8x8_flag, int startIdx, int endIdx, int cbp_luma, int cbp_chroma,
     SliceHeader *sh, Undo264Context *ctx) {
 
-    BitReader *br = ctx->br;
-
 
 
     CACALL(read_residual_luma, mb, type, t_8x8_flag, cbp_luma, startIdx, endIdx, sh, ctx);
@@ -133,8 +129,6 @@ void CAFUNC(read_residual,
 
 int CAFUNC(read_I_mb_type,
     Macroblock *mb, int ctxIdx, const Undo264Context *ctx) {
-
-    BitReader *br = ctx->br;
 
     #if CABAC
         // maxBinIdx=6 ctxIdxOffset=3 for I slice
@@ -180,7 +174,8 @@ int CAFUNC(read_I_mb_type,
             }
         }
     #else
-        int mb_type = read_ue(br);
+        dontuse(mb) dontuse(ctxIdx)
+        int mb_type = read_ue(ctx->br);
     #endif
 
     return mb_type;
@@ -188,8 +183,6 @@ int CAFUNC(read_I_mb_type,
 
 int CAFUNC(read_P_mb_type,
     Macroblock *mb, const Undo264Context *ctx) {
-
-    BitReader *br = ctx->br;
 
     #if CABAC
         // prefix: maxBinIdxCtx=2 ctxIdxOffset=14
@@ -206,14 +199,13 @@ int CAFUNC(read_P_mb_type,
         }
         return mb_type;
     #else
-        return read_ue(br);
+        dontuse(mb)
+        return read_ue(ctx->br);
     #endif
 }
 
 int CAFUNC(read_B_mb_type,
     Macroblock *mb, const Undo264Context *ctx) {
-
-    BitReader *br = ctx->br;
 
     #if CABAC
         // prefix: maxBinIdxCtx=3 ctxIdxOffset=27
@@ -227,8 +219,8 @@ int CAFUNC(read_B_mb_type,
         };
         int mb_type = 0, str = 0;
 
-        MacroblockMetadata metaA = mb->has_mb_a ? ctx->mb_metadata[mb->mbAddr - 1] : (MacroblockMetadata) {};
-        MacroblockMetadata metaB = mb->has_mb_b ? ctx->mb_metadata[mb->mbAddr + mb->mb_b_off] : (MacroblockMetadata) {};
+        MacroblockMetadata metaA = mb->has_mb_a ? ctx->mb_metadata[mb->mbAddr - 1] : (MacroblockMetadata) {0};
+        MacroblockMetadata metaB = mb->has_mb_b ? ctx->mb_metadata[mb->mbAddr + mb->mb_b_off] : (MacroblockMetadata) {0};
 
         int inc = (mb->has_mb_a && !IS_SKIP(metaA.mb_type) && !IS_DIRECT(metaA.mb_type)) +
                   (mb->has_mb_b && !IS_SKIP(metaB.mb_type) && !IS_DIRECT(metaB.mb_type));
@@ -257,14 +249,13 @@ int CAFUNC(read_B_mb_type,
         }
         return mb_type;
     #else
-        return read_ue(br);
+        dontuse(mb)
+        return read_ue(ctx->br);
     #endif
 }
 
 int CAFUNC(read_P_sub_mb_type,
     const Undo264Context *ctx) {
-
-    BitReader *br = ctx->br;
 
     #if CABAC
         // maxBinIdxCtx=2 ctxIdxOffset=21
@@ -280,7 +271,7 @@ int CAFUNC(read_P_sub_mb_type,
             }
         }
     #else
-        int sub_mb_type = read_ue(br);
+        int sub_mb_type = read_ue(ctx->br);
     #endif
 
     return sub_mb_type;
@@ -288,8 +279,6 @@ int CAFUNC(read_P_sub_mb_type,
 
 int CAFUNC(read_B_sub_mb_type,
     const Undo264Context *ctx) {
-
-    BitReader *br = ctx->br;
 
     #if CABAC
         // maxBinIdxCtx=3 ctxIdxOffset=36
@@ -320,7 +309,7 @@ int CAFUNC(read_B_sub_mb_type,
             }
         }
     #else
-        int sub_mb_type = read_ue(br);
+        int sub_mb_type = read_ue(ctx->br);
     #endif
 
     return sub_mb_type;
@@ -330,6 +319,8 @@ int CAFUNC(read_ref_idx,
     Macroblock *mb, int list, int pos4x4, int num_ref_active_minus1, SliceHeader *sh, const Undo264Context *ctx) {
 
     #if CABAC
+        (void)num_ref_active_minus1;
+
         int ref_idx = 0;
         long str = 0;
         static int ctxIdxInc[16] = {0, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
@@ -385,6 +376,7 @@ int CAFUNC(read_ref_idx,
 
         return ref_idx;
     #else
+        dontuse(mb) dontuse(list) dontuse(pos4x4) dontuse(sh)
         return read_te(ctx->br, num_ref_active_minus1);
     #endif
 }
@@ -403,8 +395,8 @@ int CAFUNC(read_mvd,
         bool predModeEqualA = n.a.av && ctx->curr_pic->ref_idx[mb->mbAddr + n.a.mb_off][list][n.a.idx] >= 0;
         bool predModeEqualB = n.b.av && ctx->curr_pic->ref_idx[mb->mbAddr + n.b.mb_off][list][n.b.idx] >= 0;
 
-        MacroblockMetadata metaA = n.a.av ? ctx->mb_metadata[mb->mbAddr + n.a.mb_off] : (MacroblockMetadata) {};
-        MacroblockMetadata metaB = n.b.av ? ctx->mb_metadata[mb->mbAddr + n.b.mb_off] : (MacroblockMetadata) {};
+        MacroblockMetadata metaA = n.a.av ? ctx->mb_metadata[mb->mbAddr + n.a.mb_off] : (MacroblockMetadata) {0};
+        MacroblockMetadata metaB = n.b.av ? ctx->mb_metadata[mb->mbAddr + n.b.mb_off] : (MacroblockMetadata) {0};
 
         int absMvdCompA = (n.a.av && !IS_SKIP(metaA.mb_type) && !IS_INTRA(metaA.mb_type) && predModeEqualA)
                           * (_abs(metaA.mvd[list][n.a.idx][xy]));
@@ -427,7 +419,6 @@ int CAFUNC(read_mvd,
             int k = 3;
             int bin;
             int symbol = 0, bin_symbol = 0;
-            int val = 0;
             do {
                 bin = cabac_get_bit_bypass(ctx);
                 if (bin == 1) {
@@ -450,6 +441,7 @@ int CAFUNC(read_mvd,
         return mvd;
 
     #else
+        dontuse(mb) dontuse(list) dontuse(xy) dontuse(pos4x4)
         return read_se(ctx->br);
     #endif
 }
@@ -475,6 +467,7 @@ int CAFUNC(read_intra_chroma_pred_mode,
         if (str == 7) intra_chroma_pred_mode = 3;
         return intra_chroma_pred_mode;
     #else
+        dontuse(mb)
         return read_ue(ctx->br);
     #endif
 }
@@ -485,8 +478,8 @@ int CAFUNC(read_coded_block_pattern,
         // prefix : maxBinIdxCtx=3 ctxIdxOffset=73
         // suffix : maxBinIdxCtx=1 ctxIdxOffset=77
         int cbp_luma = 0, inc = 0;
-        MacroblockMetadata metaA = mb->has_mb_a ? ctx->mb_metadata[mb->mbAddr - 1] :(MacroblockMetadata) {};
-        MacroblockMetadata metaB = mb->has_mb_b ? ctx->mb_metadata[mb->mbAddr + mb->mb_b_off] : (MacroblockMetadata) {};
+        MacroblockMetadata metaA = mb->has_mb_a ? ctx->mb_metadata[mb->mbAddr - 1] :(MacroblockMetadata) {0};
+        MacroblockMetadata metaB = mb->has_mb_b ? ctx->mb_metadata[mb->mbAddr + mb->mb_b_off] : (MacroblockMetadata) {0};
 
         inc = (mb->has_mb_a && !IS_PCM(metaA.mb_type) && (IS_SKIP(metaA.mb_type) || ((metaA.cbp_luma >> 1 & 1) == 0)))
                 + 2 * (mb->has_mb_b && !IS_PCM(metaB.mb_type) && (IS_SKIP(metaB.mb_type) || ((metaB.cbp_luma >> 2 & 1) == 0)));
@@ -507,18 +500,18 @@ int CAFUNC(read_coded_block_pattern,
         long str = 0;
         static int ctxIdxInc[2];
         if (sh->sps->chroma_format_idc != 0) {
-            inc = (mb->has_mb_a && IS_PCM(metaA.mb_type) ||
+            inc = ((mb->has_mb_a && IS_PCM(metaA.mb_type)) ||
                   ((mb->has_mb_a && !IS_SKIP(metaA.mb_type) &&
                     metaA.cbp_chroma != 0)))
-                 + 2 * (mb->has_mb_b && IS_PCM(metaB.mb_type) ||
-                       (mb->has_mb_b && !IS_SKIP(metaB.mb_type) &&
+                 + 2 * ((mb->has_mb_b && IS_PCM(metaB.mb_type)) ||
+                       ((mb->has_mb_b && !IS_SKIP(metaB.mb_type)) &&
                         metaB.cbp_chroma != 0));
             ctxIdxInc[0] = inc;
-            inc = (mb->has_mb_a && IS_PCM(metaA.mb_type) ||
+            inc = ((mb->has_mb_a && IS_PCM(metaA.mb_type)) ||
                   ((mb->has_mb_a && !IS_SKIP(metaA.mb_type) &&
                     metaA.cbp_chroma == 2)))
-                 + 4 + 2 * (mb->has_mb_b && IS_PCM(metaB.mb_type) ||
-                       (mb->has_mb_b && !IS_SKIP(metaB.mb_type) &&
+                 + 4 + 2 * ((mb->has_mb_b && IS_PCM(metaB.mb_type)) ||
+                       ((mb->has_mb_b && !IS_SKIP(metaB.mb_type)) &&
                         metaB.cbp_chroma == 2));
             ctxIdxInc[1] = inc;
 
@@ -556,6 +549,7 @@ int CAFUNC(read_mb_qp_delta,
         return (-1 +
             2*(val & 1)) * ((val + 1) / 2);
     #else
+        dontuse(mb)
         return read_se(ctx->br);
     #endif
 }
@@ -565,7 +559,6 @@ int CAFUNC(read_mb_qp_delta,
 void CAFUNC(read_mb_pred,
     Macroblock *mb, SliceHeader *sh, const Undo264Context *ctx) {
 
-    BitReader *br = ctx->br;
     Picture *currPic = ctx->curr_pic;
 
     int mbAddr = mb->mbAddr;
@@ -613,7 +606,7 @@ void CAFUNC(read_mb_pred,
                 #if CABAC
                     int8_t prev_intra4x4_pred_mode_flag = cabac_get_bit(ctx, 68);
                 #else
-                    uint8_t prev_intra4x4_pred_mode_flag = read_u(br, 1);
+                    uint8_t prev_intra4x4_pred_mode_flag = read_u(ctx->br, 1);
                 #endif
                 if (!prev_intra4x4_pred_mode_flag) {
                     #if CABAC
@@ -622,7 +615,7 @@ void CAFUNC(read_mb_pred,
                         rem_intra4x4_pred_mode += cabac_get_bit(ctx, 69) << 1;
                         rem_intra4x4_pred_mode += cabac_get_bit(ctx, 69) << 2;
                     #else
-                        uint8_t rem_intra4x4_pred_mode = read_u(br, 3);
+                        uint8_t rem_intra4x4_pred_mode = read_u(ctx->br, 3);
                     #endif
                     ctx->mb_metadata[mbAddr].intra_NxN_pred_mode[blkIdx] = rem_intra4x4_pred_mode < predIntraMode
                         ? rem_intra4x4_pred_mode
@@ -666,7 +659,7 @@ void CAFUNC(read_mb_pred,
                 #if CABAC
                     int8_t prev_intra8x8_pred_mode_flag = cabac_get_bit(ctx, 68);
                 #else
-                    uint8_t prev_intra8x8_pred_mode_flag = read_u(br, 1);
+                    uint8_t prev_intra8x8_pred_mode_flag = read_u(ctx->br, 1);
                 #endif
                 if (!prev_intra8x8_pred_mode_flag) {
                     #if CABAC
@@ -675,7 +668,7 @@ void CAFUNC(read_mb_pred,
                         rem_intra8x8_pred_mode += cabac_get_bit(ctx, 69) << 1;
                         rem_intra8x8_pred_mode += cabac_get_bit(ctx, 69) << 2;
                     #else
-                        uint8_t rem_intra8x8_pred_mode = read_u(br, 3);
+                        uint8_t rem_intra8x8_pred_mode = read_u(ctx->br, 3);
                     #endif
                     ctx->mb_metadata[mbAddr].intra_NxN_pred_mode[i8x8] = rem_intra8x8_pred_mode < predMode
                         ? rem_intra8x8_pred_mode
@@ -762,8 +755,6 @@ void CAFUNC(read_mb_pred,
 void CAFUNC(read_sub_mb_pred,
     Macroblock *mb, SliceHeader *sh, const Undo264Context *ctx) {
 
-    BitReader *br = ctx->br;
-
     for (int part = 0; part < 4; part++) {
         int sub_mb_type = IS_P_SLICE(sh->slice_type)
             ? CACALL(read_P_sub_mb_type, ctx)
@@ -774,8 +765,6 @@ void CAFUNC(read_sub_mb_pred,
         ctx->mb_metadata[mb->mbAddr].sub_mb_type[part] = sub_mb_type;
     }
     for (int part = 0; part < 4; part++) {
-        int w = mb->u.pb.sub_mb_info[part].mb_part_width;
-        int h = mb->u.pb.sub_mb_info[part].mb_part_height;
         int pos4x4 = map_4x4[part * 4];
         if (sh->num_ref_idx_l0_active_minus1 > 0 && !(mb->mb_type & MB_TYPE_REF0) &&
             !(mb->u.pb.sub_mb_info[part].type & SUB_MB_TYPE_DIRECT && IS_B_SLICE(sh->slice_type)) &&
@@ -789,8 +778,6 @@ void CAFUNC(read_sub_mb_pred,
         }
     }
     for (int part = 0; part < 4; part++) {
-        int w = mb->u.pb.sub_mb_info[part].mb_part_width;
-        int h = mb->u.pb.sub_mb_info[part].mb_part_height;
         int pos4x4 = map_4x4[part * 4];
         if (sh->num_ref_idx_l1_active_minus1 > 0 && !(mb->mb_type & MB_TYPE_REF0) &&
             !(mb->u.pb.sub_mb_info[part].type & SUB_MB_TYPE_DIRECT && IS_B_SLICE(sh->slice_type)) &&
@@ -874,7 +861,7 @@ void CAFUNC(read_macroblock,
 
 
     #if CABAC
-        int mb_type;
+        int mb_type = 0;
         if (IS_I_SLICE(sh->slice_type))      mb_type = read_I_mb_type_cabac(mb, 3, ctx);
         else if (IS_P_SLICE(sh->slice_type)) mb_type = read_P_mb_type_cabac(mb, ctx);
         else if (IS_B_SLICE(sh->slice_type)) mb_type = read_B_mb_type_cabac(mb, ctx);
@@ -925,10 +912,6 @@ void CAFUNC(read_macroblock,
 
 
     mb->slice_type = sh->slice_type;
-
-    int pred_mode = intra_mb
-        ? i_mb_type_info[mb_type].pred_mode
-        : -1;
 
     int cbp_luma = intra_mb
         ? i_mb_type_info[mb_type].cbp_luma
@@ -1079,13 +1062,12 @@ void CAFUNC(read_macroblock,
 
 /* 7.3.4 */
 void CAFUNC(decode_slice,
-    SliceHeader *sh, NalUnit *nal_unit, Undo264Context *ctx) {
+    SliceHeader *sh, Undo264Context *ctx) {
 
     BitReader *br = ctx->br;
 
 
     PPS *pps = sh->pps;
-    SPS *sps = sh->sps;
 
 
     #if CABAC
@@ -1192,7 +1174,7 @@ void CAFUNC(decode_slice,
             if (mbaff_frame_flag && (currMbAddr%2 == 0 ||
                 (currMbAddr%2 == 1 && prevMbSkipped))) {
 
-                int mb_field_decoding_flag = read_u(br, 1);
+                read_u(br, 1); // mb_field_flag
             }
 
             profiler_start_mb(ctx->prf);

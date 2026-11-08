@@ -26,7 +26,6 @@ static always_inline int sum(const uint8_t *samples, int start, int end) {
 }
 
 
-#define unused(arg) (void)(arg);
 
 /*=======================================*/
 /*========   4x4 PREDICTION   ===========*/
@@ -34,7 +33,7 @@ static always_inline int sum(const uint8_t *samples, int start, int end) {
 
 void vert_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -46,7 +45,7 @@ void vert_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void hor_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(top)
+    dontuse(a_av) dontuse(b_av) dontuse(top)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -80,7 +79,7 @@ void dc_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void diag_down_left_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -95,7 +94,7 @@ void diag_down_left_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void diag_down_right_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -109,7 +108,7 @@ void diag_down_right_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void vert_right_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -137,7 +136,7 @@ void vert_right_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void hor_down_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -165,7 +164,7 @@ void hor_down_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void vert_left_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -181,7 +180,7 @@ void vert_left_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void hor_up_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(top)
+    dontuse(a_av) dontuse(b_av) dontuse(top)
 
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 4; x++) {
@@ -213,7 +212,7 @@ void hor_up_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void filter_samples(const uint8_t top_temp[16], const uint8_t left_temp[9],
         uint8_t *top, uint8_t *left, int a_av, int b_av, int c_av, int d_av) {
-    unused(c_av)
+    dontuse(c_av)
     
     if (b_av) {
         top[1] = d_av
@@ -251,7 +250,7 @@ void filter_samples(const uint8_t top_temp[16], const uint8_t left_temp[9],
 
 void vert_8x8_pred(uint8_t *dst, int stride, int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -263,7 +262,7 @@ void vert_8x8_pred(uint8_t *dst, int stride, int a_av, int b_av,
 
 void hor_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(top)
+    dontuse(a_av) dontuse(b_av) dontuse(top)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -297,7 +296,7 @@ void dc_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void diag_down_left_8x8_pred(uint8_t *dst, int stride, int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -313,7 +312,7 @@ void diag_down_left_8x8_pred(uint8_t *dst, int stride, int a_av, int b_av,
 
 void diag_down_right_8x8_pred(uint8_t *dst, int stride, int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -331,7 +330,7 @@ void diag_down_right_8x8_pred(uint8_t *dst, int stride, int a_av, int b_av,
 
 void vert_right_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -352,7 +351,7 @@ void vert_right_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void hor_down_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -374,7 +373,7 @@ void hor_down_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void vert_left_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -390,7 +389,7 @@ void vert_left_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void hor_up_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
         const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(top)
+    dontuse(a_av) dontuse(b_av) dontuse(top)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -417,7 +416,7 @@ void hor_up_8x8_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 
 void vert_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(left)
+    dontuse(a_av) dontuse(b_av) dontuse(left)
 
     for (int y = 0; y < 16; y++) {
         for (int x = 0; x < 16; x++) {
@@ -430,7 +429,7 @@ void vert_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
 
 void hor_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av) unused(top)
+    dontuse(a_av) dontuse(b_av) dontuse(top)
 
     for (int y = 0; y < 16; y++) {
         for (int x = 0; x < 16; x++) {
@@ -477,7 +476,7 @@ void dc_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
 
 void plane_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
     const uint8_t *top, const uint8_t *left) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     int H=0, V=0;
     for (int x = 0; x < 8; x++) {
@@ -511,7 +510,7 @@ void plane_16x16_pred(uint8_t *dst, int stride, int a_av, int b_av,
 void vert_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
     const uint8_t *top_cr, const uint8_t *left_cr) {
-    unused(a_av) unused(b_av) unused(left_cb) unused(left_cr)
+    dontuse(a_av) dontuse(b_av) dontuse(left_cb) dontuse(left_cr)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -527,7 +526,7 @@ void vert_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av
 void hor_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
     const uint8_t *top_cr, const uint8_t *left_cr) {
-    unused(a_av) unused(b_av) unused(top_cb) unused(top_cr)
+    dontuse(a_av) dontuse(b_av) dontuse(top_cb) dontuse(top_cr)
 
     for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
@@ -633,7 +632,7 @@ void dc_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, 
 void plane_8x8_chroma_pred(uint8_t *dst_cb, uint8_t *dst_cr, int stride, int a_av, int b_av,
     const uint8_t *top_cb, const uint8_t *left_cb,
     const uint8_t *top_cr, const uint8_t *left_cr) {
-    unused(a_av) unused(b_av)
+    dontuse(a_av) dontuse(b_av)
 
     int xCF = 0;
     int yCF = 0;
