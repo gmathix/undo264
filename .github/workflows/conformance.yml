@@ -11,8 +11,8 @@ jobs:
   vectors:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v6
         id: vectors
         with:
           path: |
@@ -33,12 +33,12 @@ jobs:
         target: [release, asan, ubsan, msan]
         suite: [AVCv1, FRExt]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y ffmpeg clang
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             test/conformance/AVCv1
