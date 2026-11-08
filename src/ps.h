@@ -88,6 +88,7 @@ typedef struct SPS {
     int  mb_aff_flag;
     int  profile_idc; // 66=baseline, 77=main, 100=high
     int  separate_color_plane_flag;
+    int  transform_bypass_flag;
 
     int8_t constraint_set0_flag;
     int8_t constraint_set1_flag;
