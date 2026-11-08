@@ -55,6 +55,7 @@ export UBSAN_OPTIONS=halt_on_error=1:exitcode=1:print_stacktrace=1
 export MSAN_OPTIONS=halt_on_error=1:exit_code=1
 
 declare -A SAN_NAME=([asan]=ASan [ubsan]=UBSan [msan]=MSan)
+declare -A exact mism san fail skip bad_list san_list
 
 # ---- Build -------------------------------------------------------------------
 # build_san <target> <ASAN> <UBSAN> <MSAN> [extra cmake args]
@@ -149,20 +150,20 @@ while IFS= read -r -d '' subdir; do
             ((skip[$t]++))
         elif [[ $ret -eq 1 && "$t" != release ]]; then
             tag "$YELLOW" "${t^^}"; echo "${SAN_NAME[$t]} caught an error (see ${name}_${t}_undo264.log)"
-            ((san[$t]++))
+            ((san[$t]++)); san_list[$t]+="${san_list[$t]:+, }$name"
         elif [[ $ret -ne 0 ]]; then
             tag "$RED" FAIL; echo "$t: decoder returned $ret (see ${name}_${t}_undo264.log)"
-            ((fail[$t]++))
+            ((fail[$t]++)); bad_list[$t]+="${bad_list[$t]:+, }$name"
         elif ! prepare_ref; then
             tag "$RED" FAIL; echo "$t: no reference available"
-            ((fail[$t]++))
+            ((fail[$t]++)); bad_list[$t]+="${bad_list[$t]:+, }$name"
         elif cmp -s "$out" "$dec_ref"; then
             tag "$GREEN" OK; echo "$t: bit-exact"
             ((exact[$t]++))
         else
             tag "$RED" DIFF; echo "$t: not bit-exact"
             report_diff
-            ((mism[$t]++))
+            ((mism[$t]++)); bad_list[$t]+="${bad_list[$t]:+, }$name"
         fi
         rm -f "$out"
     done
@@ -179,6 +180,17 @@ for t in "${TARGETS[@]}"; do
     bad=$((bad + ${mism[$t]:-0} + ${fail[$t]:-0}))
     san_total=$((san_total + ${san[$t]:-0}))
 done
+
+print_list() {   # print_list <title> <color> <array name>
+    local -n arr="$3"; local printed=0
+    for t in "${TARGETS[@]}"; do
+        [[ -n "${arr[$t]}" ]] || continue
+        ((printed)) || { echo; echo "$2$1$RST"; printed=1; }
+        echo "  $t: ${arr[$t]}" | fold -s -w 100 | sed '2,$s/^/    /'
+    done
+}
+print_list "Not bit-exact or failed to decode:" "$RED" bad_list
+print_list "Sanitizer errors:" "$YELLOW" san_list
 
 echo
 if [[ $bad -gt 0 ]]; then
