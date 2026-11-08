@@ -85,6 +85,7 @@ static always_inline size_t bitreader_bits_remaining(BitReader *br) {
  */
 static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
     if (n > br->bits_remaining) n = br->bits_remaining;
+    if (n <= 0 || n > 32) return 0;
 
     // shift left part of bits_cache to the right 32 bits, then mask the number of bits to peek
     return (uint32_t) (br->bits_cache >> (64 - br->cache_pos - n)) & (((uint64_t)1<<n) - 1);
@@ -92,6 +93,8 @@ static always_inline uint32_t bitreader_peek_bits(BitReader *br, size_t n) {
 
 
 static always_inline void bitreader_skip_bits(BitReader *br, size_t n) {
+    if (n == 0) return;
+
     br->cache_pos += n;
     br->bits_remaining = n <= br->bits_remaining ? br->bits_remaining - n : 0; // avoid underflow
 
@@ -103,15 +106,15 @@ static always_inline void bitreader_skip_bits(BitReader *br, size_t n) {
 }
 
 static always_inline uint32_t bitreader_read_bits(BitReader *br, size_t n) {
-    if (br->bits_remaining == 0 && br->jmp_armed) {
-        FAIL(br->err, br->err_jmp, UNDO_ERR_BITSTREAM,
-            "bitreader oveflow: %zu bits requested, remaining 0. file might have been truncated mid-frame.\n", n);
-    } else {
+    if (br->bits_remaining > 0 || !br->jmp_armed) {
         uint32_t res = bitreader_peek_bits(br, n);
         bitreader_skip_bits(br, n);
 
         return res;
     }
+
+    FAIL(br->err, br->err_jmp, UNDO_ERR_BITSTREAM,
+        "bitreader oveflow: %zu bits requested, remaining 0. file might have been truncated mid-frame.\n", n);
 }
 
 static always_inline void bitreader_rewind(BitReader *br, size_t n) {
