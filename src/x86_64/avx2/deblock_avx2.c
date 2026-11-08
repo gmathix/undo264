@@ -16,7 +16,7 @@
 
 #define THRESH_MASK_epi16(a, thresh) _mm256_cmpgt_epi16(thresh, a)
 // convert 0xFFFF to 0x0001
-#define THRESH_MASK_epi16_SET1(a, thresh) _mm256_subs_epu16(THRESH_MASK_epi16(a, thresh), _mm256_set1_epi16(0xFFFE))
+#define THRESH_MASK_epi16_SET1(a, thresh) _mm256_subs_epu16(THRESH_MASK_epi16(a, thresh), _mm256_set1_epi16((int16_t)0xFFFE))
 
 #define CLIP3_epi16(min, max, r) _mm256_max_epi16(min, _mm256_min_epi16(max, r))
 
@@ -38,10 +38,10 @@
 #define TRANSPOSE8x8_AVX(l0, l1, l2, l3) do {                                                                \
     __m128i shuffle = _mm_set_epi8(15,11,7,3, 14,10,6,2, 13,9,5,1, 12,8,4,0);                            \
                                                                                                          \
-    __m128i t0 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0b10001000)); \
-    __m128i t1 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0b10001000)); \
-    __m128i t2 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0b11011101)); \
-    __m128i t3 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0b11011101)); \
+    __m128i t0 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0x88)); \
+    __m128i t1 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0x88)); \
+    __m128i t2 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0xDD)); \
+    __m128i t3 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0xDD)); \
                                                                                                          \
     l0 = _mm_shuffle_epi8(t0, shuffle);                                                                  \
     l1 = _mm_shuffle_epi8(t1, shuffle);                                                                  \
@@ -305,3 +305,21 @@ void deblock_edge_weak_luma_v_avx2(uint8_t *dst, int stride, int alpha, int beta
     strided_load_avx_t store = (strided_load_avx_t) {load.c0, p1_store, p0_store, q0_store, q1_store, load.c5, load.c6, load.c7};
     store_strided_avx_16(&dst[-3], stride, store);
 }
+
+
+#undef ABS_DIFF_epi8
+#undef ABS_DIFF_epi16
+#undef THRESH_MASK_epi16
+#undef THRESH_MASK_epi16_SET1
+#undef CLIP3_epi16
+#undef add16
+#undef sub16
+#undef mullo16
+#undef srai16
+#undef slli16
+#undef set1_epi16
+#undef cmpgt16
+#undef and256
+#undef blendv8
+#undef cmplt16
+#undef TRANSPOSE8x8_AVX

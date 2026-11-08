@@ -19,10 +19,10 @@
 
 // 0xFF where r < thresh, else 0
 // #define THRESH_MASK_epu8(r, thresh) _mm_cmpeq_epi8(_mm_subs_epu8(r, _mm_set1_epi8(thresh-1)), _mm_setzero_si128())
-#define THRESH_MASK_epu8(r, thresh) _mm_cmplt_epi8(_mm_xor_si128(r, _mm_set1_epi8(0x80)), _mm_xor_si128(thresh, _mm_set1_epi8(0x80)))
+#define THRESH_MASK_epu8(r, thresh) _mm_cmplt_epi8(_mm_xor_si128(r, _mm_set1_epi8((char)0x80)), _mm_xor_si128(thresh, _mm_set1_epi8((char)0x80)))
 
 // 0x01 where r < thresh, else 0
-#define THRESH_MASK_SET1_epi8(r, thresh) _mm_subs_epu8(THRESH_MASK_epu8(r, thresh), _mm_set1_epi8(0xFE))
+#define THRESH_MASK_SET1_epi8(r, thresh) _mm_subs_epu8(THRESH_MASK_epu8(r, thresh), _mm_set1_epi8((char)0xFE))
 
 #define CLIP3_epi16(min, max, r) _mm_max_epi16(min, _mm_min_epi16(max, r))
 
@@ -34,10 +34,10 @@
 #define TRANSPOSE8x8_SSE(l0, l1, l2, l3) do {                                                            \
     __m128i shuffle = _mm_set_epi8(15,11,7,3, 14,10,6,2, 13,9,5,1, 12,8,4,0);                            \
                                                                                                          \
-    __m128i t0 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0b10001000)); \
-    __m128i t1 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0b10001000)); \
-    __m128i t2 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0b11011101)); \
-    __m128i t3 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0b11011101)); \
+    __m128i t0 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0x88)); \
+    __m128i t1 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0x88)); \
+    __m128i t2 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l0),_mm_castsi128_ps(l1),0xDD)); \
+    __m128i t3 = _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(l2),_mm_castsi128_ps(l3),0xDD)); \
                                                                                                          \
     l0 = _mm_shuffle_epi8(t0, shuffle);                                                                  \
     l1 = _mm_shuffle_epi8(t1, shuffle);                                                                  \
@@ -634,8 +634,8 @@ void deblock_edge_weak_chroma_h_sse4(uint8_t *dst, int stride, int alpha, int be
     __m128i q1 = _mm_cvtepu8_epi16(_mm_loadu_si64(&dst[ 1*stride]));
 
     __m128i tc0 = _mm_load_si128((__m128i*)get_tc0_table(bS, indexA));
-    tc0 = _mm_and_si128(tc0, _mm_set_epi8(0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
-                                                0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF));
+    tc0 = _mm_and_si128(tc0, _mm_set_epi8(0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF,
+                                                0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF));
     __m128i skip = _mm_cmplt_epi16(tc0, _mm_set1_epi16(0x0080));
 
     __m128i alpha_reg = _mm_set1_epi16(alpha);
@@ -669,8 +669,8 @@ void deblock_edge_weak_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int be
     q1 = load.c3;
 
     __m128i tc0 = _mm_load_si128((__m128i*)get_tc0_table(bS, indexA));
-    tc0 = _mm_and_si128(tc0, _mm_set_epi8(0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
-                                                0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF));
+    tc0 = _mm_and_si128(tc0, _mm_set_epi8(0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF,
+                                                0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF, 0x00, (char)0xFF));
     __m128i skip = _mm_cmplt_epi16(tc0, _mm_set1_epi16(0x0080));
 
     __m128i alpha_reg = _mm_set1_epi16(alpha);
@@ -721,8 +721,6 @@ void deblock_edge_strong_chroma_h_sse4(uint8_t *dst, int stride, int alpha, int 
 }
 
 void deblock_edge_strong_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int beta) {
-    __m128i zero_reg = _mm_setzero_si128();
-
     __m128i p0, p1, q0, q1;
     strided_load_sse_t load = load_strided_sse_8(&dst[-2], stride);
     p1 = load.c0;
@@ -748,3 +746,16 @@ void deblock_edge_strong_chroma_v_sse4(uint8_t *dst, int stride, int alpha, int 
     strided_load_sse_t store = (strided_load_sse_t) {p1, p0, q0, q1, load.c4, load.c5, load.c6, load.c7};
     store_strided_sse_8(&dst[-2], stride, store);
 }
+
+
+#undef ABS_DIFF_epi8
+#undef ABS_DIFF_epi16
+#undef THRESH_MASK_epu8
+#undef THRESH_MASK_SET1_epi8
+#undef CLIP3_epi16
+#undef add16
+#undef srai16
+#undef mullo16
+#undef TRANSPOSE8x8_SSE
+#undef HELPER_DEBLOCK_8_PIX_STRONG_LUMA
+#undef HELPER_DEBLOCK_8_PIX_WEAK_LUMA

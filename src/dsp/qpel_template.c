@@ -309,3 +309,7 @@ static void (*QPEL_FUNCS_ARRAY[16])(const uint8_t*, uint8_t*, int16_t*, int) = {
 #undef QPEL_HELPER3
 #undef QPEL_HELPER2
 #undef QPEL_HELPER
+
+#undef QPEL_FUNCS_ARRAY
+#undef QPEL_FUNCS_ARRAY2
+#undef QPEL_FUNCS_ARRAY3

@@ -250,3 +250,7 @@ void WEIGHTED_SSE_FUNC(weigh_single_sse, 16,
         dst += stride;
     }
 }
+
+#undef WEIGHTED_SSE_FUNC
+#undef WEIGHTED_SSE_FUNC2
+#undef WEIGHTED_SSE_FUNC3

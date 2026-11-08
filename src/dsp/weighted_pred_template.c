@@ -53,3 +53,7 @@ void INTER_FUNC(weigh_bi,
         dst += stride;
     }
 }
+
+#undef INTER_FUNC
+#undef INTER_FUNC2
+#undef INTER_FUNC3

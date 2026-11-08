@@ -29,3 +29,7 @@ void INTER_CHROMA_FUNC(chroma_interpolation,
         dst += stride;
     }
 }
+
+#undef INTER_CHROMA_FUNC
+#undef INTER_CHROMA_FUNC2
+#undef INTER_CHROMA_FUNC3
