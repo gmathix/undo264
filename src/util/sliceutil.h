@@ -27,7 +27,7 @@
 
 
 
-static char* slice_type_to_string(uint32_t slice_type) {
+static always_inline char* slice_type_to_string(uint32_t slice_type) {
     if (IS_I_SLICE(slice_type))  return "I";
     if (IS_P_SLICE(slice_type))  return "P";
     if (IS_B_SLICE(slice_type))  return "B";

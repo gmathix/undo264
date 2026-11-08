@@ -106,7 +106,6 @@ set(UNDO264_SOURCES
         src/dpb.c
         src/loopfilter.c
         src/cabac.c
-        src/util/logger.c
         src/util/dump_info.c
         src/tests/profiler.c
         src/dsp_init.c

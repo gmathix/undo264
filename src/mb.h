@@ -307,7 +307,7 @@ static always_inline void reset_mb(Macroblock *mb, int mbAddr, const Undo264Cont
 }
 
 
-static void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
+static always_inline void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
     for (int i = 0; i < 16; i++) {
         ctx->curr_pic->ref_pics[mbAddr][L0][i] = &EMPTY_PICTURE;
         ctx->curr_pic->ref_pics[mbAddr][L1][i] = &EMPTY_PICTURE;

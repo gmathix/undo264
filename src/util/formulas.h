@@ -13,7 +13,7 @@
 #define ABS(x) (x >= 0 ? (x) : -(x))
 #define CLIP3(min, max, x) x > max ? max : x < min ? min : x
 
-static always_inline int32_t  _abs(int32_t x)           { return x >= 0 ? x : -x; }
+static always_inline int32_t _abs(int32_t x)           { return x >= 0 ? x : -x; }
 static always_inline int32_t _min(int32_t x, int32_t y) { return x <= y ? x : y; }
 static always_inline int32_t _max(int x, int y) { return x >= y ? x : y; }
 static always_inline double  _log2(double x)          { return log2(x); }
@@ -42,7 +42,7 @@ static always_inline int32_t lshift(int32_t n, int16_t qp) {
 }
 
 
-static void binprintf(int v, int length)
+static always_inline void binprintf(int v, int length)
 {
     for (int i = 31; i >= 32-length; i--) {
         putchar((v & (1 << i)) ? '1' : '0');

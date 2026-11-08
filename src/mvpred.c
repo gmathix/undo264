@@ -2,9 +2,6 @@
 // Created by gmathix on 5/1/26.
 //
 
-#ifndef H264_MVPRED_H
-#define H264_MVPRED_H
-
 
 #include "global.h"
 #include "mb.h"
@@ -301,7 +298,6 @@ static always_inline void derive_sub_4x4_mv(Macroblock *mb, int partIdx, int lis
  * geometry.
  */
 static always_inline MotionVector get_colocated_mv(Macroblock *mb, int partIdx, int subPartIdx, int *list, Picture **ref, const Undo264Context *ctx) {
-    Picture *currPic = ctx->curr_pic;
     Picture *refPic  = ctx->dpb->refs[L1][1+0];
 
     int luma4x4Idx = ctx->curr_pic->sh->sps->direct_8x8_inference_flag
@@ -519,7 +515,3 @@ static void derive_8x8_mv(Macroblock *mb, const Undo264Context *ctx) {
 
 
 // whew! that was sweaty code to write! now time for my beer.
-
-
-
-#endif //H264_MVPRED_H

@@ -9,14 +9,13 @@
 #include "cavlc.h"
 #include "inter.h"
 #include "intra.h"
-#include "mvpred.h"
+#include "mvpred.c"
 
 #include "tests/profiler.h"
 #include "util/sliceutil.h"
 #include "util/expgolomb.h"
 #include "util/mbutil.h"
 #include "util/predutil.h"
-#include "util/logger.h"
 
 
 /* table 7-11 */
