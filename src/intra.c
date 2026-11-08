@@ -210,7 +210,7 @@ void hor_up_4x4_pred(uint8_t *dst, int stride,  int a_av, int b_av,
 /*========   8x8 PREDICTION   ===========*/
 /*=======================================*/
 
-void filter_samples(const uint8_t top_temp[16], const uint8_t left_temp[9],
+void filter_samples(const uint8_t top_temp[17], const uint8_t left_temp[9],
         uint8_t *top, uint8_t *left, int a_av, int b_av, int c_av, int d_av) {
     dontuse(c_av)
     
