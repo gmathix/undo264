@@ -17,96 +17,129 @@
 #define MAX_PPS_COUNT     256
 
 
-typedef struct SPS {
-    /* only params used for baseline profile for now.
-     * no scaling matrix or VUI params shit that we don't need for now */
 
+typedef struct VUI {
+    unsigned chroma_sample_loc_type_top_field;
+    unsigned chroma_sample_loc_type_bottom_field;
+    unsigned num_units_in_tick;
+    unsigned time_scale;
+
+    int aspect_ratio_info_present_flag;
+    int aspect_ratio_idc;
+    int overscan_info_present_flag;
+    int overscan_appropriate_flag;
+    int video_signal_type_present_flag;
+    int video_format;
+    int video_full_range_flag;
+    int colour_description_present_flag;
+    int colour_primaries;
+    int transfer_characteristics;
+    int matrix_coefficients;
+    int chroma_loc_info_present_flag;
+    int timing_info_present_flag;
+    int fixed_frame_rate_flag;
+    int nal_hrd_parameters_present_flag;
+    int low_delay_hrd_flag;
+    int pic_struct_present_flag;
+    int bitstream_restriction_flag;
+    int motion_vectors_over_pic_boundaries_flag;
+    int max_bytes_per_pic_denom;
+    int max_bits_per_mb_denom;
+    int log2_max_mv_length_horizontal;
+    int log2_max_mv_length_vertical;
+    int max_num_reorder_frames;
+    int max_dec_frame_buffering;
+} VUI ;
+
+typedef struct SPS {
+
+    VUI vui;
 
     // RAW (from bitstream)
 
 
-    uint32_t bit_depth_chroma_minus8;
-    uint32_t chroma_format_idc;
-    uint32_t crop_bottom_offset;
-    uint32_t crop_left_offset;
-    uint32_t crop_right_offset;
-    uint32_t crop_top_offset;
-    uint32_t log2_max_frame_num_minus4;
-    uint32_t log2_max_poc_lsb_minus4;
-    uint32_t num_ref_frames_in_poc_cycle;
-    uint32_t max_num_ref_frames;
-    uint32_t poc_type;
-    uint32_t pic_width_in_mbs_minus1;
-    uint32_t pic_height_in_map_units_minus1;
-    uint32_t sps_id;
+    unsigned bit_depth_chroma_minus8;
+    unsigned chroma_format_idc;
+    unsigned crop_bottom_offset;
+    unsigned crop_left_offset;
+    unsigned crop_right_offset;
+    unsigned crop_top_offset;
+    unsigned log2_max_frame_num_minus4;
+    unsigned log2_max_poc_lsb_minus4;
+    unsigned num_ref_frames_in_poc_cycle;
+    unsigned max_num_ref_frames;
+    unsigned poc_type;
+    unsigned pic_width_in_mbs_minus1;
+    unsigned pic_height_in_map_units_minus1;
+    unsigned sps_id;
 
-    int32_t  offset_for_non_ref_pic;
-    int32_t *offset_for_ref_frame;
-    int32_t  offset_for_top_to_bottom_field;
+    int  offset_for_non_ref_pic;
+    int *offset_for_ref_frame;
+    int  offset_for_top_to_bottom_field;
 
-    int      bit_depth_luma_minus8;
-    int      delta_pic_order_always_zero_flag;
-    int      direct_8x8_inference_flag;
-    int      frame_cropping_flag;
-    int      frame_mbs_only_flag;
-    int      gaps_in_frame_num_allowed_flag;
-    int      level_idc;
-    int      max_dec_frame_buffering;
-    int      mb_aff_flag;
-    int      profile_idc; // 66=baseline, 77=main, 100=high
-    int      separate_color_plane_flag;
+    int  bit_depth_luma_minus8;
+    int  delta_pic_order_always_zero_flag;
+    int  direct_8x8_inference_flag;
+    int  frame_cropping_flag;
+    int  frame_mbs_only_flag;
+    int  gaps_in_frame_num_allowed_flag;
+    int  level_idc;
+    int  max_dec_frame_buffering;
+    int  mb_aff_flag;
+    int  profile_idc; // 66=baseline, 77=main, 100=high
+    int  separate_color_plane_flag;
 
-    int constraint_set0_flag;
-    int constraint_set1_flag;
-    int constraint_set2_flag;
-    int constraint_set3_flag;
-    int constraint_set4_flag;
-    int constraint_set5_flag;
+    int8_t constraint_set0_flag;
+    int8_t constraint_set1_flag;
+    int8_t constraint_set2_flag;
+    int8_t constraint_set3_flag;
+    int8_t constraint_set4_flag;
+    int8_t constraint_set5_flag;
 
 
 
     // DERIVED
-    int      bit_depth_luma;     // bit_depth_luma_minus8 + 8
-    uint32_t bit_depth_chroma;   // bit_depth_chroma_minus8 + 8
-    uint32_t log2_max_frame_num; // log2_max_frame_num_minus4 + 4
-    uint32_t log2_max_poc_lsb; // log2_max_poc_lbs_minus4 + 4
-    uint32_t pic_width_in_mbs; // pic_width_in_mbs_minus1 + 1
-    uint32_t pic_height_in_map_units; // (pic_height_in_map_units_minus1 + 1) * (2 - frame_mbs_only_flag)
-    uint32_t pic_width_samples_l;
-    uint32_t pic_height_samples_l;
+    int  bit_depth_luma;     // bit_depth_luma_minus8 + 8
+    unsigned bit_depth_chroma;   // bit_depth_chroma_minus8 + 8
+    unsigned log2_max_frame_num; // log2_max_frame_num_minus4 + 4
+    unsigned log2_max_poc_lsb; // log2_max_poc_lbs_minus4 + 4
+    unsigned pic_width_in_mbs; // pic_width_in_mbs_minus1 + 1
+    unsigned pic_height_in_map_units; // (pic_height_in_map_units_minus1 + 1) * (2 - frame_mbs_only_flag)
+    unsigned pic_width_samples_l;
+    unsigned pic_height_samples_l;
 
 } SPS ;
 
 
 typedef struct PPS {
     // RAW (from bitstream)
-    uint32_t num_ref_idx_l0_default_active_minus1;
-    uint32_t num_ref_idx_l1_default_active_minus1;
-    uint32_t num_slice_groups_minus1;
-    uint32_t pps_id;
-    uint32_t sps_id;
+    unsigned num_ref_idx_l0_default_active_minus1;
+    unsigned num_ref_idx_l1_default_active_minus1;
+    unsigned num_slice_groups_minus1;
+    unsigned pps_id;
+    unsigned sps_id;
 
-    int32_t  chroma_qp_index_offset;
-    int32_t  second_chroma_qp_index_offset;
-    int32_t  pic_init_qp_minus26;
-    int32_t  pic_init_qs_minus26;
+    int  chroma_qp_index_offset;
+    int  second_chroma_qp_index_offset;
+    int  pic_init_qp_minus26;
+    int  pic_init_qs_minus26;
 
-    int      bottom_field_pic_order_in_frame_present_flag;
-    int      constrained_intra_pred_flag;
-    int      deblocking_filter_control_present_flag;
-    int      cabac_flag;
-    int      redundant_pic_cnt_present_flag;
-    int      transform_8x8_mode_flag;
-    int      weighted_pred_flag;
-    int      weighted_bipred_idc;
+    int  bottom_field_pic_order_in_frame_present_flag;
+    int  constrained_intra_pred_flag;
+    int  deblocking_filter_control_present_flag;
+    int  cabac_flag;
+    int  redundant_pic_cnt_present_flag;
+    int  transform_8x8_mode_flag;
+    int  weighted_pred_flag;
+    int  weighted_bipred_idc;
 
 
     // DERIVED
-    uint32_t num_ref_idx_l0_default_active;
-    uint32_t num_ref_idx_l1_default_active;
-    uint32_t num_slice_groups;
-    int32_t  pic_init_qp;
-    int32_t  pic_init_qs;
+    unsigned num_ref_idx_l0_default_active;
+    unsigned num_ref_idx_l1_default_active;
+    unsigned num_slice_groups;
+    int  pic_init_qp;
+    int  pic_init_qs;
 
 } PPS ;
 
