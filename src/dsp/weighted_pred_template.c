@@ -23,11 +23,20 @@
 
 void INTER_FUNC(weigh_single,
                 uint8_t *dst, int stride, int logWD, int w, int o) {
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            dst[x] = _clip1y(((dst[x] * w + (logWD > 0) * (1 << (logWD-1))) >> logWD) + o, MAX_U8);
+    if (logWD >= 1) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                dst[x] = _clip1y(((dst[x] * w + (1 << (logWD-1))) >> logWD) + o, MAX_U8);
+            }
+            dst += stride;
         }
-        dst += stride;
+    } else {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                dst[x] = _clip1y(dst[x] * w + o, MAX_U8);
+            }
+            dst += stride;
+        }
     }
 }
 
