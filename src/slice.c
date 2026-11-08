@@ -961,7 +961,7 @@ void CAFUNC(read_macroblock,
             mb->p_pic->cr[posC + (i/mb->mb_height_c)*widthC + i%mb->mb_width_c] = read_u(br, 8);
         }
 
-        mb->QPY = mb->mbAddr == sh->first_mb
+        mb->QPY = mb->mbAddr == (int)sh->first_mb
                 ? _clip3(0, 51, (pps->pic_init_qp + sh->slice_qp_delta + 52) % 52)
                 : ctx->prevQPY;
 
@@ -1107,7 +1107,7 @@ void CAFUNC(decode_slice,
                 uint32_t mb_skip_run = read_ue(br);
                 prevMbSkipped = mb_skip_run > 0;
                 // decode skipped macroblocks
-                for (int mbAddr = currMbAddr; mbAddr < currMbAddr + mb_skip_run; mbAddr++) {
+                for (unsigned mbAddr = currMbAddr; mbAddr < currMbAddr + mb_skip_run; mbAddr++) {
                     Macroblock *mb = ctx->currMb;
                     reset_mb(mb, mbAddr, ctx);
                     derive_macroblock_neighbors(mb, sh->first_mb, ctx);
@@ -1115,7 +1115,7 @@ void CAFUNC(decode_slice,
                     profiler_start_mb(ctx->prf);
                     mb->mb_type = MB_TYPE_SKIP;
                     mb->slice_type = sh->slice_type;
-                    mb->QPY = mb->mbAddr == sh->first_mb
+                    mb->QPY = mb->mbAddr == (int)sh->first_mb
                         ? (pps->pic_init_qp + sh->slice_qp_delta + 52) % 52
                         : ctx->prevQPY;
                     mb->residuals.cbp_luma = 0;

@@ -136,7 +136,7 @@ static always_inline void pred_weight_table(uint8_t type, SliceHeader *sh, Undo2
     int chroma_weight_l1_flag;
 
     if (type%5 == 1) {
-        for (int i = 0; i < sh->num_ref_idx_l1_active_minus1+1; i++) {
+        for (unsigned i = 0; i < sh->num_ref_idx_l1_active_minus1+1; i++) {
             luma_weight_l1_flag = read_u(br, 1);
             if (luma_weight_l1_flag) {
                 ctx->wpred.luma_weight[L1][i] = read_se(br);

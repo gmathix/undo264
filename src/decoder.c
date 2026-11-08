@@ -256,8 +256,8 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
                 printf("Progress: finished picture #%lu\n", ctx->prf->total_frames);
             }
 
-            if (slice->num_mbs + sh->first_mb == slice->p_pic->num_mbs ||
-                slice->num_mbs + sh->first_mb == slice->p_pic->num_mbs+1) { // end of picture
+            if (slice->num_mbs + (int)sh->first_mb == slice->p_pic->num_mbs ||
+                slice->num_mbs + (int)sh->first_mb == slice->p_pic->num_mbs+1) { // end of picture
 
                 store_picture(ctx->dpb, ctx->curr_pic);
                 profiler_end_frame(ctx->prf);
@@ -319,7 +319,7 @@ int decoder_run(Undo264Context *ctx) {
                 free((uint8_t*)ctx->next_nal_unit->data);
                 ctx->next_nal_unit->data = NULL;
 
-                if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
+                if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= (size_t)nb_frames_before_stop) {
                     goto https;
                 }
             }

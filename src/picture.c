@@ -13,7 +13,7 @@ Picture EMPTY_PICTURE = {0};
 
 
 /** table A-1 in Annex A (page 292) */
-static int get_max_pic_size_mbs(SPS *sps, const Undo264Context *ctx) {
+static int get_max_pic_size_mbs(SPS *sps, Undo264Context *ctx) {
     if ((sps->profile_idc == PROFILE_BASELINE || sps->profile_idc == PROFILE_MAIN || sps->profile_idc == PROFILE_HIGH) &&
         sps->constraint_set3_flag == 1 && sps->level_idc == 11) {
         return 99;
@@ -38,6 +38,7 @@ static int get_max_pic_size_mbs(SPS *sps, const Undo264Context *ctx) {
             case 52: return 36864;
             default: {
                 DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid level_idc: %d", sps->level_idc);
+                return -1;
             }
         }
     }
@@ -94,7 +95,7 @@ void picture_reset(Picture *p, Undo264Context *ctx) {
     p->poc = 0;
     p->dpb_pic_id = 0;
     memset(p->in_list, false, 2);
-    memset(p->lowest_list_index, 0, 2);
+    memset(p->lowest_list_index, 0, 2 * sizeof(int));
 
     p->dpb_status = UNUSED_REF;
     p->long_term_frame_idx = 0;

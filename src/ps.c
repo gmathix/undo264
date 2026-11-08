@@ -132,8 +132,8 @@ int decode_sps(Undo264Context *ctx) {
 
     sps->log2_max_frame_num_minus4 =read_ue(br);
     DEC_CHECK(ctx,
-        (sps->log2_max_frame_num_minus4 >= MIN_LOG2_MAX_FRAME_NUM - 4 &&
-        sps->log2_max_frame_num_minus4 <= MAX_LOG2_MAX_FRAME_NUM),
+        ((sps->log2_max_frame_num_minus4+4) >= MIN_LOG2_MAX_FRAME_NUM &&
+         (sps->log2_max_frame_num_minus4+4) <= MAX_LOG2_MAX_FRAME_NUM),
         UNDO_ERR_BITSTREAM,
         "log2_max_frame_num_minus4 out of range(0-12): %d\n", sps->log2_max_frame_num_minus4);
 
@@ -152,7 +152,7 @@ int decode_sps(Undo264Context *ctx) {
         sps->num_ref_frames_in_poc_cycle = read_ue(br);
 
         sps->offset_for_ref_frame = calloc_check(sps->num_ref_frames_in_poc_cycle, sizeof(int32_t), ctx);
-        for (int i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
+        for (unsigned i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
             sps->offset_for_ref_frame[i] = read_se(br);
         }
 
