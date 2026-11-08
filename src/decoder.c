@@ -316,7 +316,7 @@ int decoder_run(Undo264Context *ctx) {
             if (ctx->next_nal_unit->data) {
                 dispatch_nal_unit(ctx->next_nal_unit, ctx);
 
-                free(ctx->next_nal_unit->data);
+                free((uint8_t*)ctx->next_nal_unit->data);
                 ctx->next_nal_unit->data = NULL;
 
                 if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
@@ -364,7 +364,7 @@ void decoder_alloc_metadata(Undo264Context *ctx) {
 
 void decoder_free(Undo264Context *ctx) {
     decoder_free_metadata(ctx);
-    pic_pool_free(ctx->pool, ctx);
+    pic_pool_free(ctx->pool);
     free_cactx(ctx->cactx);
 
     #ifdef UNIX
@@ -406,7 +406,7 @@ void decoder_free(Undo264Context *ctx) {
     free(ctx->scratchMb);
 
     if (ctx->next_nal_unit->data)
-        free(ctx->next_nal_unit->data);
+        free((uint8_t*)ctx->next_nal_unit->data);
     free(ctx->next_nal_unit);
     free(ctx->nal_br);
 

@@ -129,7 +129,7 @@ static int open_files(Undo264Context *ctx) {
         perror("mmap");
         return UNDO_ERR_INTERNAL;
     }
-    madvise(ctx->data, ctx->data_size, MADV_SEQUENTIAL);
+    madvise((uint8_t*)ctx->data, ctx->data_size, MADV_SEQUENTIAL);
     ctx->data_is_mapped = true;
 #elif defined(WIN32)
     char *lpFileName = ctx->in_path;

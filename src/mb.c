@@ -301,7 +301,7 @@ void init_neighbor_tables(const Undo264Context *ctx) {
 
 
 
-void decode_i_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx) {
+void decode_i_macroblock(Macroblock *mb, Slice *slice, Undo264Context *ctx) {
     int chroma_at = slice->sh->sps->chroma_format_idc;
 
     if (IS_INTRA4x4(mb->mb_type)) {
@@ -348,7 +348,7 @@ void decode_i_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx
 
 
 
-void decode_p_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx) {
+void decode_p_macroblock(Macroblock *mb, Slice *slice, Undo264Context *ctx) {
     reset_motion_info(mb->mbAddr, ctx);
 
     int chroma_at = slice->sh->sps->chroma_format_idc;
@@ -448,7 +448,7 @@ void decode_p_macroblock(Macroblock *mb, Slice *slice, const Undo264Context *ctx
 }
 
 
-void decode_b_macroblock(Macroblock *mb,  Slice *slice, const Undo264Context *ctx) {
+void decode_b_macroblock(Macroblock *mb,  Slice *slice, Undo264Context *ctx) {
     reset_motion_info(mb->mbAddr, ctx);
 
 

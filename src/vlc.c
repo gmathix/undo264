@@ -10,13 +10,13 @@
 
 
 
-VLCTable make_vlc(uint16_t size,uint16_t *codes, uint16_t *lengths, int max_bits, struct Undo264Context *ctx) {
+VLCTable make_vlc(uint16_t size, const uint16_t *codes, const uint16_t *lengths, int max_bits) {
     VLCTable vlc;
     init_vlc(&vlc, size, lengths, codes, max_bits);
     return vlc;
 }
 
-MultiVLC make_mutli_vlc(int num_tables, struct Undo264Context *ctx) {
+MultiVLC make_mutli_vlc(int num_tables, Undo264Context *ctx) {
     MultiVLC mv;
     init_multi_vlc(&mv, num_tables, ctx);
     return mv;
@@ -24,7 +24,7 @@ MultiVLC make_mutli_vlc(int num_tables, struct Undo264Context *ctx) {
 
 
 
-void init_vlc(VLCTable *vlc, uint16_t size, uint16_t *lengths, uint16_t *codes, int max_bits) {
+void init_vlc(VLCTable *vlc, uint16_t size, const uint16_t *lengths, const uint16_t *codes, int max_bits) {
     vlc->size = size;
     vlc->codes = codes;
     vlc->lengths = lengths;
@@ -37,8 +37,9 @@ void init_multi_vlc(MultiVLC *mv, int num, Undo264Context *ctx) {
 }
 
 
-void set_vlc_table(MultiVLC *mv, int idx, uint16_t *lengths, uint16_t *codes, int size, int max_bits, Undo264Context *ctx) {
-    VLCTable vlc = make_vlc(size, codes, lengths, max_bits, ctx);
+void set_vlc_table(MultiVLC *mv, int idx, const uint16_t *lengths, const uint16_t *codes,
+                   int size, int max_bits, Undo264Context *ctx) {
+    VLCTable vlc = make_vlc(size, codes, lengths, max_bits);
     mv->tables[idx] = vlc;
     build_vlc(&mv->tables[idx], ctx);
 }

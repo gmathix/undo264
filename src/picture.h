@@ -85,13 +85,13 @@ typedef struct PicturePool {
 
 
 
-Picture *picture_alloc(SPS *sps, const Undo264Context *ctx);
+Picture *picture_alloc(SPS *sps, Undo264Context *ctx);
 void     picture_free(Picture *p);
 void     picture_reset(Picture *p, Undo264Context *ctx);
 void     dump_picture(Picture *p, const Undo264Context *ctx);
 
-void pic_pool_init(PicturePool *pool, const Undo264Context *ctx);
-void pic_pool_free(PicturePool *pool, const Undo264Context *ctx);
+void pic_pool_init(PicturePool *pool, Undo264Context *ctx);
+void pic_pool_free(PicturePool *pool);
 Picture *pic_pool_get(PicturePool *pool);
 void pic_pool_getback(Picture *pic, PicturePool *pool, Undo264Context *ctx);
 

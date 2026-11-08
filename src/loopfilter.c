@@ -207,7 +207,7 @@ static void derive_alpha_beta(Picture *pic, int mbAddr, int mbAddrN, uint8_t alp
 }
 
 
-static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264Context *ctx) {
+static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, Undo264Context *ctx) {
 
     SPS *sps = sh->sps;
 
@@ -339,7 +339,7 @@ static void deblock_macroblock_intra(Picture *pic, SliceHeader *sh, int mbAddr, 
     uint8_t *cb_base_dst   = &pic->cb[chroma_pos];
     uint8_t *cr_base_dst   = &pic->cr[chroma_pos];
 
-    const int bS_list[4] = {3, 3, 3, 3};
+    int bS_list[4] = {3, 3, 3, 3};
 
     uint8_t alphaLeft[3], betaLeft[3], indexALeft[3];
     uint8_t alphaTop[3],  betaTop[3],  indexATop[3];
@@ -423,7 +423,7 @@ void init_tc0_tables(void) {
     }
 }
 
-void deblock_slice(Picture *pic, SliceHeader *sh, const Undo264Context *ctx) {
+void deblock_slice(Picture *pic, SliceHeader *sh, Undo264Context *ctx) {
     if (!tc0_tables_initialized) {
         init_tc0_tables();
         tc0_tables_initialized = 1;

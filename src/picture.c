@@ -13,7 +13,7 @@ Picture EMPTY_PICTURE = {};
 
 
 /** table A-1 in Annex A (page 292) */
-static int get_max_pic_size_mbs(SPS *sps, Undo264Context *ctx) {
+static int get_max_pic_size_mbs(SPS *sps, const Undo264Context *ctx) {
     if ((sps->profile_idc == PROFILE_BASELINE || sps->profile_idc == PROFILE_MAIN || sps->profile_idc == PROFILE_HIGH) &&
         sps->constraint_set3_flag == 1 && sps->level_idc == 11) {
         return 99;
@@ -44,7 +44,7 @@ static int get_max_pic_size_mbs(SPS *sps, Undo264Context *ctx) {
 }
 
 
-Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
+Picture *picture_alloc(SPS *sps, Undo264Context *ctx) {
     int num_mbs = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
     int max_size = get_max_pic_size_mbs(sps, ctx);
     DEC_CHECK(ctx, num_mbs <= max_size, UNDO_ERR_LIMIT,
@@ -151,7 +151,7 @@ void dump_picture(Picture *p, const Undo264Context *ctx) {
     }
 }
 
-void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
+void pic_pool_init(PicturePool *pool, Undo264Context *ctx) {
     SPS *sps = ctx->ps->sps;
     int num_mbs = sps->pic_width_in_mbs * sps->pic_height_in_map_units;
 
@@ -182,7 +182,7 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
     pool->nb_available = pool->size;
 }
 
-void pic_pool_free(PicturePool *pool, const Undo264Context *ctx) {
+void pic_pool_free(PicturePool *pool) {
     for (int i = 0; i < pool->size; i++) {
         Picture *pic = pool->slots[i];
         if (pic) {

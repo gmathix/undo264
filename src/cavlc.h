@@ -49,7 +49,7 @@ extern const uint16_t run_before_bits           [7][15];
 
 void  residual_block_cavlc (Macroblock *mb, int blkIdx, int iCbCr, int bt,
     int16_t *coeffLevel, int startIdx, int endIdx, int maxNumCoeff, bool isLuma,
-    SliceHeader *sh, const Undo264Context *ctx);
+    SliceHeader *sh, Undo264Context *ctx);
 
 
 void  coeff_token    (Macroblock *mb, int blkIdx, int iCbCr, BlockType blockType, int *startIdx, int *endIdx, bool isLuma,

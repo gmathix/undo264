@@ -292,7 +292,7 @@ void init_vlc_tables(Undo264Context *ctx) {
 /* 7.3.5.3.2 */
 void residual_block_cavlc(Macroblock *mb, int blkIdx, int iCbCr, int bt, int16_t *coeffLevel,
                           int startIdx, int endIdx, int maxNumCoeff, bool isLuma,
-    SliceHeader *sh, const Undo264Context *ctx) {
+    SliceHeader *sh, Undo264Context *ctx) {
 
     if (!vlc_initialized) {
         init_vlc_tables(ctx);

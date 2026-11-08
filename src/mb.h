@@ -319,8 +319,8 @@ static void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
 }
 
 
-void decode_i_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
-void decode_p_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
-void decode_b_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
+void decode_i_macroblock(Macroblock *mb, struct Slice *slice, Undo264Context *ctx);
+void decode_p_macroblock(Macroblock *mb, struct Slice *slice, Undo264Context *ctx);
+void decode_b_macroblock(Macroblock *mb, struct Slice *slice, Undo264Context *ctx);
 
 #endif //H264_MB_H

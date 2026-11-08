@@ -48,7 +48,7 @@ typedef struct DPB {
 
 
 
-static DPB *make_dpb(const Undo264Context *ctx) {
+static DPB *make_dpb(Undo264Context *ctx) {
     DPB *dpb = calloc_check(1, sizeof(DPB), ctx);
 
 

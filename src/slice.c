@@ -33,7 +33,7 @@
 void CAFUNC(read_residual_luma,
     Macroblock *mb, int type, int t_8x8_flag, int cbp_luma,
     int startIdx, int endIdx,
-    SliceHeader *sh, const Undo264Context *ctx) {
+    SliceHeader *sh, Undo264Context *ctx) {
 
     BitReader *br = ctx->br;
 
@@ -86,7 +86,7 @@ void CAFUNC(read_residual_luma,
 /* 7.3.5.3 */
 void CAFUNC(read_residual,
     Macroblock *mb, int type, int t_8x8_flag, int startIdx, int endIdx, int cbp_luma, int cbp_chroma,
-    SliceHeader *sh, const Undo264Context *ctx) {
+    SliceHeader *sh, Undo264Context *ctx) {
 
     BitReader *br = ctx->br;
 
