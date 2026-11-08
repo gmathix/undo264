@@ -237,9 +237,9 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
             if (sh->pps->cabac_flag) {
-                decode_slice_cabac(sh, nal_unit, ctx);
+                decode_slice_cabac(sh, ctx);
             } else {
-                decode_slice_cavlc(sh, nal_unit, ctx);
+                decode_slice_cavlc(sh, ctx);
             }
 
             Slice *slice = ctx->current_slice;
@@ -256,8 +256,8 @@ int dispatch_nal_unit(NalUnit *nal_unit, Undo264Context *ctx) {
                 printf("Progress: finished picture #%lu\n", ctx->prf->total_frames);
             }
 
-            if (slice->num_mbs + sh->first_mb == slice->p_pic->num_mbs ||
-                slice->num_mbs + sh->first_mb == slice->p_pic->num_mbs+1) { // end of picture
+            if (slice->num_mbs + (int)sh->first_mb == slice->p_pic->num_mbs ||
+                slice->num_mbs + (int)sh->first_mb == slice->p_pic->num_mbs+1) { // end of picture
 
                 store_picture(ctx->dpb, ctx->curr_pic);
                 profiler_end_frame(ctx->prf);
@@ -316,10 +316,10 @@ int decoder_run(Undo264Context *ctx) {
             if (ctx->next_nal_unit->data) {
                 dispatch_nal_unit(ctx->next_nal_unit, ctx);
 
-                free(ctx->next_nal_unit->data);
+                free((uint8_t*)ctx->next_nal_unit->data);
                 ctx->next_nal_unit->data = NULL;
 
-                if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= nb_frames_before_stop) {
+                if (bitreader_bits_remaining(ctx->nal_br) > 8 && ctx->prf->total_frames <= (size_t)nb_frames_before_stop) {
                     goto https;
                 }
             }
@@ -364,7 +364,7 @@ void decoder_alloc_metadata(Undo264Context *ctx) {
 
 void decoder_free(Undo264Context *ctx) {
     decoder_free_metadata(ctx);
-    pic_pool_free(ctx->pool, ctx);
+    pic_pool_free(ctx->pool);
     free_cactx(ctx->cactx);
 
     #ifdef UNIX
@@ -406,7 +406,7 @@ void decoder_free(Undo264Context *ctx) {
     free(ctx->scratchMb);
 
     if (ctx->next_nal_unit->data)
-        free(ctx->next_nal_unit->data);
+        free((uint8_t*)ctx->next_nal_unit->data);
     free(ctx->next_nal_unit);
     free(ctx->nal_br);
 

@@ -6,20 +6,9 @@
 #define UNDO264_ERROR_H
 
 
-
+#include "global.h"
 #include <setjmp.h>
 #include <stdarg.h>
-
-typedef enum {
-    UNDO_OK              = 0,
-/*  SANITIZER_ERR        = 1, */
-    UNDO_ERR_BITSTREAM   = 2, // invalid per spec
-    UNDO_ERR_UNSUPPORTED = 3, // valid but out of scope, see below
-    UNDO_ERR_LIMIT       = 4, // exceeds limits defined by level_idc
-    UNDO_ERR_NOMEM       = 5,
-    UNDO_ERR_INTERNAL    = 6,
-    UNDO_ERR_OTHER       = 7,
-} undo_status ;
 
 /* features out of undo264's scope, returning UNDO_ERR_UNSUPPORTED :
  * - Field coding
@@ -36,19 +25,7 @@ typedef struct {
     int         line;
 } DecError ;
 
-
-static void fail(DecError *err, jmp_buf *err_jmp, undo_status code, const char *file, int line,
-                       const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(err->msg, sizeof err->msg, fmt, ap);
-    va_end(ap);
-    err->code = code;
-    err->file = file;
-    err->line = line;
-
-    longjmp(*err_jmp, 1);
-}
+void fail(DecError *err, jmp_buf *err_jmp, undo_status code, const char *file, int line, const char *fmt, ...);
 
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define FAIL(err, jmp, code, ...) \

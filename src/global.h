@@ -25,6 +25,8 @@
 
 #define always_inline inline __attribute__((always_inline))
 #define flatten __attribute__((flatten))
+#define unused __attribute__((unused))
+#define dontuse(a) (void)(a);
 #define OPTIMIZE_O0   __attribute__((optimize("O0")))
 #define OPTIMIZE_O1   __attribute__((optimize("O1")))
 #define OPTIMIZE_O2   __attribute__((optimize("O2")))
@@ -111,7 +113,7 @@ enum Profile {
     PROFILE_HIGH_PRED_444   = 244,
 };
 
-enum {
+enum MMCO_values {
     MMCO_END_LOOP                   = 0,
     MMCO_MARK_SHORT_TERM_UNUSED     = 1,
     MMCO_MARK_LONG_TERM_UNUSED      = 2,
@@ -119,8 +121,19 @@ enum {
     MMCO_MARK_OOB_LONG_TERM_UNUSED  = 4,
     MMCO_RESET                      = 5,
     MMCO_MARK_CURR_AS_LONG_TERM     = 6
-};
+} ;
 
+
+typedef enum {
+    UNDO_OK              = 0,
+/*  SANITIZER_ERR        = 1, */
+    UNDO_ERR_BITSTREAM   = 2, // invalid per spec
+    UNDO_ERR_UNSUPPORTED = 3, // valid but out of scope, see below
+    UNDO_ERR_LIMIT       = 4, // exceeds limits defined by level_idc
+    UNDO_ERR_NOMEM       = 5,
+    UNDO_ERR_INTERNAL    = 6,
+    UNDO_ERR_OTHER       = 7,
+} undo_status ;
 
 // this also directly maps to ctxBlockCat
 typedef enum {

@@ -8,7 +8,7 @@
 #include "util/dump_info.h"
 
 
-Picture EMPTY_PICTURE = {};
+Picture EMPTY_PICTURE = {0};
 
 
 
@@ -38,13 +38,14 @@ static int get_max_pic_size_mbs(SPS *sps, Undo264Context *ctx) {
             case 52: return 36864;
             default: {
                 DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "invalid level_idc: %d", sps->level_idc);
+                return -1;
             }
         }
     }
 }
 
 
-Picture *picture_alloc(SPS *sps, const Undo264Context *ctx) {
+Picture *picture_alloc(SPS *sps, Undo264Context *ctx) {
     int num_mbs = (int32_t)sps->pic_width_in_mbs * (int32_t)sps->pic_height_in_map_units;
     int max_size = get_max_pic_size_mbs(sps, ctx);
     DEC_CHECK(ctx, num_mbs <= max_size, UNDO_ERR_LIMIT,
@@ -94,7 +95,7 @@ void picture_reset(Picture *p, Undo264Context *ctx) {
     p->poc = 0;
     p->dpb_pic_id = 0;
     memset(p->in_list, false, 2);
-    memset(p->lowest_list_index, 0, 2);
+    memset(p->lowest_list_index, 0, 2 * sizeof(int));
 
     p->dpb_status = UNUSED_REF;
     p->long_term_frame_idx = 0;
@@ -134,7 +135,6 @@ void dump_picture(Picture *p, const Undo264Context *ctx) {
     int top    = ctx->ps->sps->crop_top_offset;
     int bottom = ctx->ps->sps->crop_bottom_offset;
     int left   = ctx->ps->sps->crop_left_offset;
-    int right  = ctx->ps->sps->crop_right_offset;
 
 
     for (int i = top; i < p->heightY - bottom; i++) {
@@ -151,7 +151,7 @@ void dump_picture(Picture *p, const Undo264Context *ctx) {
     }
 }
 
-void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
+void pic_pool_init(PicturePool *pool, Undo264Context *ctx) {
     SPS *sps = ctx->ps->sps;
     int num_mbs = sps->pic_width_in_mbs * sps->pic_height_in_map_units;
 
@@ -182,7 +182,7 @@ void pic_pool_init(PicturePool *pool, const Undo264Context *ctx) {
     pool->nb_available = pool->size;
 }
 
-void pic_pool_free(PicturePool *pool, const Undo264Context *ctx) {
+void pic_pool_free(PicturePool *pool) {
     for (int i = 0; i < pool->size; i++) {
         Picture *pic = pool->slots[i];
         if (pic) {

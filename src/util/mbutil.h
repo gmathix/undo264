@@ -108,7 +108,7 @@
 
 
 
-static char* mb_type_to_string(int type) {
+static always_inline char* mb_type_to_string(int type) {
     if (IS_INTRA4x4   (type))  return "I4x4";
     if (IS_INTRA16x16 (type))  return "I16x16";
     if (IS_PCM        (type))  return "PCM";
@@ -126,7 +126,7 @@ static char* mb_type_to_string(int type) {
     return "UNDEF";
 }
 
-static char *sub_mb_type_to_string(int type) {
+static always_inline char *sub_mb_type_to_string(int type) {
     if (IS_SUB_DIRECT(type)) return "SUB_DIRECT";
     if (IS_SUB_8x8(type))    return "SUB_8x8";
     if (IS_SUB_8x4(type))    return "SUB_8x4";

@@ -113,6 +113,10 @@ void CHROMA_SSE_FUNC(chroma_interpolation_sse, 8,
     }
 }
 
+#undef CHROMA_SSE_FUNC
+#undef CHROMA_SSE_FUNC2
+#undef CHROMA_SSE_FUNC3
+
 
 
 

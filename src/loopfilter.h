@@ -24,7 +24,7 @@ static always_inline int8_t *get_tc0_table(int *bS, int indexA) {
     return tc0_tables[(bS[0]<<6) + (bS[1]<<4) + (bS[2]<<2) + bS[3]][indexA];
 }
 
-void deblock_slice(Picture *pic, SliceHeader *sh, const Undo264Context *ctx);
+void deblock_slice(Picture *pic, SliceHeader *sh, Undo264Context *ctx);
 
 
 

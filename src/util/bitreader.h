@@ -115,6 +115,7 @@ static always_inline uint32_t bitreader_read_bits(BitReader *br, size_t n) {
 
     FAIL(br->err, br->err_jmp, UNDO_ERR_BITSTREAM,
         "bitreader oveflow: %zu bits requested, remaining 0. file might have been truncated mid-frame.\n", n);
+    return 0;
 }
 
 static always_inline void bitreader_rewind(BitReader *br, size_t n) {

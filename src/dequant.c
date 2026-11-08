@@ -129,8 +129,8 @@ void scaling_list_fallback(int index, bool is4x4, bool isPPS, const Undo264Conte
     bool useDefault = is4x4 ? ctx->useDefaultList4x4[index] : ctx->useDefaultList8x8[index-6];
     bool fallbackB = isPPS && ctx->seqScalingMatrixPresent;
 
-    int16_t (*scalingList4x4)[16] = isPPS ? ctx->scalingList4x4 : ctx->seqScalingList4x4;
-    int16_t (*scalingList8x8)[64] = isPPS ? ctx->scalingList8x8 : ctx->seqScalingList8x8;
+    int16_t (*scalingList4x4)[16] = (int16_t(*)[16])(isPPS ? ctx->scalingList4x4 : ctx->seqScalingList4x4);
+    int16_t (*scalingList8x8)[64] = (int16_t(*)[64])(isPPS ? ctx->scalingList8x8 : ctx->seqScalingList8x8);
 
     if (index == 0) {
         if (useDefault
@@ -164,8 +164,8 @@ void scaling_list_fallback(int index, bool is4x4, bool isPPS, const Undo264Conte
 }
 
 void infer_flat_matrices(bool seq, const Undo264Context *ctx) {
-    int16_t (*scalingList4x4)[16] = seq ? ctx->seqScalingList4x4 : ctx->scalingList4x4;
-    int16_t (*scalingList8x8)[64] = seq ? ctx->seqScalingList8x8 : ctx->scalingList8x8;
+    int16_t (*scalingList4x4)[16] = (int16_t(*)[16])(seq ? ctx->seqScalingList4x4 : ctx->scalingList4x4);
+    int16_t (*scalingList8x8)[64] = (int16_t(*)[64])(seq ? ctx->seqScalingList8x8 : ctx->scalingList8x8);
 
     for (int i = 0; i < 6; i++) {
         memcpy(scalingList4x4[i], flat_4x4_16, 16 * sizeof(int16_t));
@@ -178,7 +178,7 @@ void infer_flat_matrices(bool seq, const Undo264Context *ctx) {
 
 
 static always_inline void inverse_matrix_scan(
-    int size, int scan[static size], int16_t in[static size], int16_t out[static size]) {
+    int size, const int scan[static size], int16_t in[static size], int16_t out[static size]) {
 
    for (int i = 0; i < size; i++) {
        out[i] = in[scan[i]];

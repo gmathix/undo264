@@ -23,7 +23,6 @@
 
 #include "sse4/transform_sse4.c"
 #include "sse4/deblock_sse4.c"
-
 #include "avx2/deblock_avx2.c"
 
 

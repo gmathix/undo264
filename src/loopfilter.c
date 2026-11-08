@@ -123,26 +123,26 @@ static int check_mv(SliceHeader *sh, int idx, int idx_n, const Undo264Context *c
     // L0
     bs = ctx->ref_cache[L0][idx] != ctx->ref_cache[L0][idx_n]; // different pictures
     if (bs == 0 && ctx->ref_cache[L0][idx] != EMPTY_PICTURE.dpb_pic_id) {
-        bs = ctx->mv_cache[L0][idx_mv]   - ctx->mv_cache[L0][idx_n_mv]   + 3 >= 7U | // abs(MV_x - MV_x_n) >= 4
-             ctx->mv_cache[L0][idx_mv+1] - ctx->mv_cache[L0][idx_n_mv+1] + 3 >= 7U;  // abs(MV_y - MV_y_n) >= 4
+        bs = ((unsigned)(ctx->mv_cache[L0][idx_mv]   - ctx->mv_cache[L0][idx_n_mv]   + 3) >= 7U) | /* abs(MV_x - MV_x_n) >= 4 */
+             ((unsigned)(ctx->mv_cache[L0][idx_mv+1] - ctx->mv_cache[L0][idx_n_mv+1] + 3) >= 7U);  /* abs(MV_y - MV_y_n) >= 4 */
     }
 
     if (IS_B_SLICE(sh->slice_type)) {
         if (bs == 0) { // L1
-            bs = ctx->ref_cache[L1][idx] != ctx->ref_cache[L1][idx_n] | // different L1 pictures
-                 ctx->mv_cache[L1][idx_mv]   - ctx->mv_cache[L1][idx_n_mv]   + 3 >= 7U | // abs(MV_x - MV_x_n) >= 4
-                 ctx->mv_cache[L1][idx_mv+1] - ctx->mv_cache[L1][idx_n_mv+1] + 3 >= 7U;  // abs(MV_y - MV_y_n) >= 4
+            bs = (ctx->ref_cache[L1][idx] != ctx->ref_cache[L1][idx_n]) | /* different L1 pictures */
+                 ((unsigned)(ctx->mv_cache[L1][idx_mv]   - ctx->mv_cache[L1][idx_n_mv]   + 3) >= 7U) | /* abs(MV_x - MV_x_n) >= 4 */
+                 ((unsigned)(ctx->mv_cache[L1][idx_mv+1] - ctx->mv_cache[L1][idx_n_mv+1] + 3) >= 7U);  /* abs(MV_y - MV_y_n) >= 4 */
         }
 
         if (bs == 1) { // L0 pictures are different and L1 pictures too, need to check if L0 and L1 pictures are mutually different too
-            if (ctx->ref_cache[L0][idx] != ctx->ref_cache[L1][idx_n] |
-                ctx->ref_cache[L1][idx] != ctx->ref_cache[L0][idx_n])
+            if ((ctx->ref_cache[L0][idx] != ctx->ref_cache[L1][idx_n]) |
+                (ctx->ref_cache[L1][idx] != ctx->ref_cache[L0][idx_n]))
                 return 1;
 
-            return ctx->mv_cache[L0][idx_mv]   - ctx->mv_cache[L1][idx_n_mv]   + 3 >= 7U | // abs(MV_x_l0 - MV_x_n_l1) >= 4
-                   ctx->mv_cache[L0][idx_mv+1] - ctx->mv_cache[L1][idx_n_mv+1] + 3 >= 7U | // abs(MV_y_l0 - MV_x_y_l1) >= 4
-                   ctx->mv_cache[L1][idx_mv]   - ctx->mv_cache[L0][idx_n_mv]   + 3 >= 7U | // abs(MV_x_l1 - MV_x_n_l0) >= 4
-                   ctx->mv_cache[L1][idx_mv+1] - ctx->mv_cache[L0][idx_n_mv+1] + 3 >= 7U;  // abs(MV_y_l1 - MV_y_n_l0) >= 4
+            return ((unsigned)(ctx->mv_cache[L0][idx_mv]   - ctx->mv_cache[L1][idx_n_mv]   + 3) >= 7U) | /* abs(MV_x_l0 - MV_x_n_l1) >= 4 */
+                   ((unsigned)(ctx->mv_cache[L0][idx_mv+1] - ctx->mv_cache[L1][idx_n_mv+1] + 3) >= 7U) | /* abs(MV_y_l0 - MV_x_y_l1) >= 4 */
+                   ((unsigned)(ctx->mv_cache[L1][idx_mv]   - ctx->mv_cache[L0][idx_n_mv]   + 3) >= 7U) | /* abs(MV_x_l1 - MV_x_n_l0) >= 4 */
+                   ((unsigned)(ctx->mv_cache[L1][idx_mv+1] - ctx->mv_cache[L0][idx_n_mv+1] + 3) >= 7U);  /* abs(MV_y_l1 - MV_y_n_l0) >= 4 */
         }
     }
 
@@ -207,7 +207,7 @@ static void derive_alpha_beta(Picture *pic, int mbAddr, int mbAddrN, uint8_t alp
 }
 
 
-static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const Undo264Context *ctx) {
+static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, Undo264Context *ctx) {
 
     SPS *sps = sh->sps;
 
@@ -237,8 +237,7 @@ static void deblock_macroblock(Picture *pic, SliceHeader *sh, int mbAddr, const 
     uint8_t *cb_base_dst   = &pic->cb[chroma_pos];
     uint8_t *cr_base_dst   = &pic->cr[chroma_pos];
 
-    int bS_list[4] = {0, 0, 0, 0};
-    int bS_list_all[2][4][4] = {};
+    int bS_list_all[2][4][4] = {0};
 
     uint8_t alphaLeft[3], betaLeft[3], indexALeft[3];
     uint8_t alphaTop[3],  betaTop[3],  indexATop[3];
@@ -339,7 +338,7 @@ static void deblock_macroblock_intra(Picture *pic, SliceHeader *sh, int mbAddr, 
     uint8_t *cb_base_dst   = &pic->cb[chroma_pos];
     uint8_t *cr_base_dst   = &pic->cr[chroma_pos];
 
-    const int bS_list[4] = {3, 3, 3, 3};
+    int bS_list[4] = {3, 3, 3, 3};
 
     uint8_t alphaLeft[3], betaLeft[3], indexALeft[3];
     uint8_t alphaTop[3],  betaTop[3],  indexATop[3];
@@ -423,7 +422,7 @@ void init_tc0_tables(void) {
     }
 }
 
-void deblock_slice(Picture *pic, SliceHeader *sh, const Undo264Context *ctx) {
+void deblock_slice(Picture *pic, SliceHeader *sh, Undo264Context *ctx) {
     if (!tc0_tables_initialized) {
         init_tc0_tables();
         tc0_tables_initialized = 1;

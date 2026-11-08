@@ -73,16 +73,16 @@ typedef struct Slice {
 
 
 
-static Slice *slice_alloc(Undo264Context *ctx) {
+static always_inline Slice *slice_alloc(Undo264Context *ctx) {
     Slice *s = calloc_check(1, sizeof(Slice), ctx);
     return s;
 }
 
-static void slice_free(Slice *slice) {
+static always_inline void slice_free(Slice *slice) {
     free(slice);
 }
 
-static void slice_reset(Slice *slice) {
+static always_inline void slice_reset(Slice *slice) {
     slice->num_mbs = 0;
     slice->p_pic = NULL;
     slice->sh = NULL;
@@ -92,7 +92,7 @@ static void slice_reset(Slice *slice) {
 
 
 /* 7.3.3.2 */
-static void pred_weight_table(uint8_t type, SliceHeader *sh, Undo264Context *ctx) {
+static always_inline void pred_weight_table(uint8_t type, SliceHeader *sh, Undo264Context *ctx) {
     BitReader *br = ctx->br;
     SPS *sps = sh->sps;
 
@@ -136,7 +136,7 @@ static void pred_weight_table(uint8_t type, SliceHeader *sh, Undo264Context *ctx
     int chroma_weight_l1_flag;
 
     if (type%5 == 1) {
-        for (int i = 0; i < sh->num_ref_idx_l1_active_minus1+1; i++) {
+        for (unsigned i = 0; i < sh->num_ref_idx_l1_active_minus1+1; i++) {
             luma_weight_l1_flag = read_u(br, 1);
             if (luma_weight_l1_flag) {
                 ctx->wpred.luma_weight[L1][i] = read_se(br);
@@ -166,7 +166,7 @@ static void pred_weight_table(uint8_t type, SliceHeader *sh, Undo264Context *ctx
 
 
 /* 7.3.3 */
-static void read_curr_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
+static always_inline void read_curr_slice_header(NalUnit *nal_unit, Undo264Context *ctx) {
 
 
     BitReader *br = ctx->br;

@@ -96,6 +96,7 @@ option(BUILD_REPLAY_TARGETS "Build replay_asan / replay_ubsan / replay_msan (one
 set(UNDO264_SOURCES
         src/intra.c
         src/annexb.c
+        src/error.c
         src/ps.c
         src/decoder.c
         src/mb.c
@@ -106,7 +107,6 @@ set(UNDO264_SOURCES
         src/dpb.c
         src/loopfilter.c
         src/cabac.c
-        src/util/logger.c
         src/util/dump_info.c
         src/tests/profiler.c
         src/dsp_init.c

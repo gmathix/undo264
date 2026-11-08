@@ -29,7 +29,7 @@
       l3 = _mm_unpackhi_epi64(temp3, temp3);                      \
 
 
-static always_inline void idct_4x4_sse(__m128i *r01, __m128i *r23, uint8_t *dst, int stride, int bitDepth) {
+static always_inline void idct_4x4_sse(__m128i *r01, __m128i *r23, uint8_t *dst, int stride) {
     const uint64_t *p01 = (const uint64_t*)r01;
     const uint64_t *p23 = (const uint64_t*)r23;
 
@@ -108,7 +108,7 @@ static always_inline void idct_4x4_sse(__m128i *r01, __m128i *r23, uint8_t *dst,
 
 
 
-static always_inline void idct_8x8_sse(int16_t d[8][8], uint8_t *dst, int stride, int bitDepth) {
+static always_inline void idct_8x8_sse(int16_t d[8][8], uint8_t *dst, int stride) {
       __m128i r0 = _mm_loadu_si128((__m128i*)d[0]);
       __m128i r1 = _mm_loadu_si128((__m128i*)d[1]);
       __m128i r2 = _mm_loadu_si128((__m128i*)d[2]);
@@ -291,7 +291,7 @@ void transform_luma_4x4_sse(Macroblock *mb, int blkIdx, const Undo264Context *ct
       idct_4x4_sse(
             &r01, &r23,
             &mb->p_pic->luma[(mb->mb_y*16 + blkY)*stride + mb->mb_x*16 + blkX],
-            stride, ctx->ps->sps->bit_depth_luma);
+            stride);
 }
 
 
@@ -310,10 +310,10 @@ void transform_luma_8x8_sse(Macroblock *mb, int i8x8, const Undo264Context *ctx)
       int scaleIndex = IS_INTER(mb->mb_type) > 0;
       int16_t (*scale) [8] = ctx->levelScale8x8[scaleIndex][qp];
 
-      if (qp >= 36)   scaling_residual_8x8_lshift(qp/6-6, scale, c, d, true, ctx);
-      else            scaling_residual_8x8_rshift_min(qp/6-6, scale, c, d, true, ctx);
+      if (qp >= 36)   scaling_residual_8x8_lshift(qp/6-6, scale, c, d);
+      else            scaling_residual_8x8_rshift_min(qp/6-6, scale, c, d);
 
-      idct_8x8_sse(d, &mb->p_pic->luma[(mb->mb_y*16 + blkY)*stride + mb->mb_x*16 + blkX], stride, ctx->ps->sps->bit_depth_luma);
+      idct_8x8_sse(d, &mb->p_pic->luma[(mb->mb_y*16 + blkY)*stride + mb->mb_x*16 + blkX], stride);
 }
 
 
@@ -368,14 +368,14 @@ void transform_luma_16x16_sse(Macroblock *mb, const Undo264Context *ctx) {
                   if (qp >= 24) scaling_residual_4x4_lshift_sse(qp, &r01, &r23, scale01, scale23);
                   else          scaling_residual_4x4_rshift_min_sse(qp, &r01, &r23, scale01, scale23);
             }
-            ((int16_t*)&r01)[0] = c[0][0];
+            r01 = _mm_insert_epi16(r01, c[0][0], 0);
 
             int blkY = (i>>2) << 2;
             int blkX = (i&3) << 2;
             idct_4x4_sse(
                   &r01,&r23,
                   &mb->p_pic->luma[(mb->mb_y*16 + blkY)*stride + mb->mb_x*16 + blkX],
-                  stride, ctx->ps->sps->bit_depth_luma);
+                  stride);
       }
 }
 
@@ -441,15 +441,18 @@ void transform_chroma_sse(Macroblock *mb, const Undo264Context *ctx) {
                               if (qp >= 24) scaling_residual_4x4_lshift_sse(qp, &r01, &r23, scale01, scale23);
                               else          scaling_residual_4x4_rshift_min_sse(qp, &r01, &r23, scale01, scale23);
                         }
-                        ((int16_t*)&r01)[0] = coeffs[0][0];
+                        r01 = _mm_insert_epi16(r01, coeffs[0][0], 0);
 
                         int blkY = (i4x4>>1) << 2;
                         int blkX = (i4x4&1) << 2;
                         idct_4x4_sse(
                               &r01, &r23,
                               &dst[(mb->mb_y*8 + blkY)*stride + mb->mb_x*8 + blkX],
-                              stride, ctx->ps->sps->bit_depth_chroma);
+                              stride);
                   }
             }
       }
 }
+
+#undef TRANSPOSE4x4
+#undef TRANSPOSE8x8

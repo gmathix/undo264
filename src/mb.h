@@ -307,7 +307,7 @@ static always_inline void reset_mb(Macroblock *mb, int mbAddr, const Undo264Cont
 }
 
 
-static void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
+static always_inline void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
     for (int i = 0; i < 16; i++) {
         ctx->curr_pic->ref_pics[mbAddr][L0][i] = &EMPTY_PICTURE;
         ctx->curr_pic->ref_pics[mbAddr][L1][i] = &EMPTY_PICTURE;
@@ -319,8 +319,8 @@ static void reset_motion_info(int mbAddr, const Undo264Context *ctx) {
 }
 
 
-void decode_i_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
-void decode_p_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
-void decode_b_macroblock(Macroblock *mb, struct Slice *slice, const Undo264Context *ctx);
+void decode_i_macroblock(Macroblock *mb, struct Slice *slice, Undo264Context *ctx);
+void decode_p_macroblock(Macroblock *mb, struct Slice *slice, Undo264Context *ctx);
+void decode_b_macroblock(Macroblock *mb, struct Slice *slice, Undo264Context *ctx);
 
 #endif //H264_MB_H

@@ -49,7 +49,6 @@ static bool greaterThan(int field, int ref)    { return field > ref; }
 static bool lowerThan(int field, int ref)      { return field < ref; }
 static bool greaterOrEqual(int field, int ref) { return field >= ref; }
 static bool lowerOrEqual(int field, int ref)   { return field <= ref; }
-static bool equalTo(int field, int ref)        { return field == ref; }
 static bool dontGiveAShit(int field, int ref)  { return true || field || ref; } // just to suppress to compiler warning
 
 
@@ -168,7 +167,7 @@ void derive_poc(DPB *dpb, Picture *pic) {
          */
 
         int prevFrameNum = dpb->prevPic == NULL ? 0 : dpb->prevPic->frame_num;
-        int prevFrameNumOffset;
+        int prevFrameNumOffset = 0;
         if (!pic->sh->idr_pic_flag) {
             prevFrameNumOffset = dpb->mmco_5_prev_occured ? 0 : dpb->prevPic->frame_num_offset;
         }
@@ -241,7 +240,7 @@ static void dpb_empty_ref_lists(DPB *dpb) {
 static void output_pic(int idx, DPB *dpb) {
     Picture *pic = dpb->slots[idx];
 
-    if (dpb->pictures_dumped == picture_to_find) {
+    if (dpb->pictures_dumped == (size_t)picture_to_find) {
         // stderr to see it better
         fprintf(stderr, "Picture %d : POC:%d frame_num:%d\n", picture_to_find, pic->poc, pic->frame_num);
     }
@@ -485,18 +484,20 @@ static void process_mmcos(Picture *pic, const Undo264Context *ctx) {
 
 /** ==================== REFERENCE PICTURE LISTS MANAGEMENT ==================== **/
 
+#if SLICES_LOG
 static void print_ref_lists(Picture *pic, DPB *dpb) {
     printf("** CurrPOC: %d L0:\n", pic->poc);
-    for (int i = 0; i < pic->sh->num_ref_idx_l0_active_minus1+1; i++) {
+    for (unsigned i = 0; i < pic->sh->num_ref_idx_l0_active_minus1+1; i++) {
         printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->refs[L0][1+i]->poc, dpb->refs[L0][1+i]->pic_num);
     }
     if (IS_B_SLICE(pic->sh->slice_type)) {
         printf("** CurrPOC: %d L1:\n", pic->poc);
-        for (int i = 0; i < pic->sh->num_ref_idx_l1_active_minus1+1; i++) {
+        for (unsigned i = 0; i < pic->sh->num_ref_idx_l1_active_minus1+1; i++) {
             printf("   %d -> POC: %3d PicNum: %3d\n", i, dpb->refs[L1][1+i]->poc, dpb->refs[L1][1+i]->pic_num);
         }
     }
 }
+#endif
 
 void init_ref_pic_lists(DPB *dpb, SliceHeader *sh) {
     dpb_empty_ref_lists(dpb);
@@ -606,7 +607,7 @@ static void ref_pic_list_modif_st(Slice *slice, bool is_l0, int *refIdxLX, int m
 
     bool rplm_occured = is_l0 ? slice->rplm_occured_l0 : slice->rplm_occured_l1;
     int prevPicNumLXPred = is_l0 ? slice->picNumL0Pred : slice->picNumL1Pred;
-    int num_ref_frames_active = is_l0 ? slice->sh->num_ref_idx_l0_active_minus1+1: slice->sh->num_ref_idx_l1_active_minus1+1;
+    int num_ref_frames_active = (int)(is_l0 ? slice->sh->num_ref_idx_l0_active_minus1+1: slice->sh->num_ref_idx_l1_active_minus1+1);
 
     int picNumLXPred = rplm_occured
         ? prevPicNumLXPred
@@ -651,11 +652,10 @@ static void ref_pic_list_modif_st(Slice *slice, bool is_l0, int *refIdxLX, int m
 }
 
 // puts a long-term ref picture at position refIdxLX (advancing 0..num_ref_idx_active-1)
-static void ref_pic_list_modif_lt(Slice *slice, bool is_l0,  int *refIdxLX, int modif_idc, int lt_pic_num, int *maxLtIdx, const Undo264Context *ctx) {
+static void ref_pic_list_modif_lt(Slice *slice, bool is_l0,  int *refIdxLX, int lt_pic_num, int *maxLtIdx, const Undo264Context *ctx) {
     DPB *dpb = ctx->dpb;
 
-    int picNumLXPred = ctx->curr_pic->pic_num;
-    int num_ref_idx_lX_active = is_l0 ? slice->sh->num_ref_idx_l0_active_minus1+1 : slice->sh->num_ref_idx_l1_active_minus1;
+    int num_ref_idx_lX_active = (int)(is_l0 ? slice->sh->num_ref_idx_l0_active_minus1+1 : slice->sh->num_ref_idx_l1_active_minus1);
     Picture **lX = is_l0 ? dpb->refs[L0] : dpb->refs[L1];
 
     Picture *refpic = findRefPic(dpb, returnLTPicNum, lt_pic_num);
@@ -692,7 +692,7 @@ void ref_pic_list_modification(uint8_t type, Slice *slice, int maxFrameNum, int 
                     ref_pic_list_modif_st(slice, true, &refIdxL0, modif_idc, abs_diff, maxFrameNum, ctx);
                 } else if (modif_idc == 2) {
                     uint32_t lt_pic_num = read_ue(br);
-                    ref_pic_list_modif_lt(slice, true, &refIdxL0, modif_idc, lt_pic_num, maxLtIdx, ctx);
+                    ref_pic_list_modif_lt(slice, true, &refIdxL0, lt_pic_num, maxLtIdx, ctx);
                 }
             } while (modif_idc != 3);
         } else {
@@ -717,7 +717,7 @@ void ref_pic_list_modification(uint8_t type, Slice *slice, int maxFrameNum, int 
                     ref_pic_list_modif_st(slice, false, &refIdxL1, modif_idc, abs_diff, maxFrameNum, ctx);
                 } else if (modif_idc == 2) {
                     uint32_t lt_pic_num = read_ue(br);
-                    ref_pic_list_modif_lt(slice, false, &refIdxL1, modif_idc, lt_pic_num, maxLtIdx, ctx);
+                    ref_pic_list_modif_lt(slice, false, &refIdxL1, lt_pic_num, maxLtIdx, ctx);
                 }
             } while (modif_idc != 3);
         } else {
@@ -740,8 +740,8 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
 
     // gaps in frame_num
     if (dpb->prevPic
-        && sh->frame_num != dpb->prevPic->frame_num
-        && sh->frame_num != (dpb->prevPic->frame_num + 1) % dpb->ctx->maxFrameNum
+        && (int)sh->frame_num != dpb->prevPic->frame_num
+        && (int)sh->frame_num != (dpb->prevPic->frame_num + 1) % dpb->ctx->maxFrameNum
         && !sh->idr_pic_flag) {
 
         if (!sh->sps->gaps_in_frame_num_allowed_flag) {
@@ -790,8 +790,8 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
             dpb->slots[idx] = nonExistingPic;
             dpb->prevPic = nonExistingPic;
             dpb->fullness++;
-        } while (curr_frame_num != sh->frame_num &&
-            ((curr_frame_num + 1) % dpb->ctx->maxFrameNum) != sh->frame_num);
+        } while (curr_frame_num != (int)sh->frame_num &&
+            ((curr_frame_num + 1) % dpb->ctx->maxFrameNum) != (int)sh->frame_num);
     }
 
     if (slice->sh->idr_pic_flag) {
@@ -814,16 +814,16 @@ void dec_ref_pic_marking(DPB *dpb, Slice *slice, BitReader *br) {
                     printf("mmco:%d\n", mmco);
                 #endif
                 if (mmco == 1 || mmco == 3) {
-                    uint32_t diff_pic_nums = read_ue(br) + 1;
+                    read_ue(br); // diff_pic_nums - 1
                 }
                 if (mmco == 2) {
-                    uint32_t lt_pic_num = read_ue(br);
+                    read_ue(br); // lt_pic_num
                 }
                 if (mmco == 3 || mmco == 6) {
-                    uint32_t lt_frame_idx = read_ue(br);
+                    read_ue(br); // lt_frame_idx
                 }
                 if (mmco == 4) {
-                    uint32_t max_lt_frame_idx = read_ue(br) - 1;
+                    read_ue(br); // max_lt_frame_idx + 1
                 }
             } while (mmco != 0);
         } else {
@@ -932,7 +932,7 @@ void store_picture(DPB *dpb, Picture *pic) {
     } else {
         if (!pic->sh->adaptive_ref_pic_marking_mode_flag) {
             if (pic->nal_ref_idc != 0) {
-                int idx = sliding_window_marking(pic->sh, dpb);
+                sliding_window_marking(pic->sh, dpb);
             }
         } else {
             // MMCOs

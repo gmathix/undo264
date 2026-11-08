@@ -56,9 +56,9 @@ int decode_sps(Undo264Context *ctx) {
 
     sps->sps_id = read_ue(br);
     if (sps->sps_id >= MAX_SPS_COUNT) {
-        free(sps);
         DEC_FAIL(ctx, UNDO_ERR_BITSTREAM,
             "sps_id %u out of range, max is %d", sps->sps_id, MAX_SPS_COUNT);
+        return 1;
     }
 
     free(ps->sps_list[sps->sps_id]);
@@ -97,7 +97,7 @@ int decode_sps(Undo264Context *ctx) {
         sps->bit_depth_luma_minus8 = read_ue(br);
         sps->bit_depth_chroma_minus8 = read_ue(br);
 
-        uint32_t transform_bypass = read_u(br, 1);
+        sps->transform_bypass_flag = read_u(br, 1);
 
         uint32_t scaling_matrix_present = read_u(br, 1);
         ctx->seqScalingMatrixPresent = scaling_matrix_present;
@@ -134,8 +134,8 @@ int decode_sps(Undo264Context *ctx) {
 
     sps->log2_max_frame_num_minus4 =read_ue(br);
     DEC_CHECK(ctx,
-        (sps->log2_max_frame_num_minus4 >= MIN_LOG2_MAX_FRAME_NUM - 4 &&
-        sps->log2_max_frame_num_minus4 <= MAX_LOG2_MAX_FRAME_NUM),
+        ((sps->log2_max_frame_num_minus4+4) >= MIN_LOG2_MAX_FRAME_NUM &&
+         (sps->log2_max_frame_num_minus4+4) <= MAX_LOG2_MAX_FRAME_NUM),
         UNDO_ERR_BITSTREAM,
         "log2_max_frame_num_minus4 out of range(0-12): %d\n", sps->log2_max_frame_num_minus4);
 
@@ -154,7 +154,7 @@ int decode_sps(Undo264Context *ctx) {
         sps->num_ref_frames_in_poc_cycle = read_ue(br);
 
         sps->offset_for_ref_frame = calloc_check(sps->num_ref_frames_in_poc_cycle, sizeof(int32_t), ctx);
-        for (int i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
+        for (unsigned i = 0; i < sps->num_ref_frames_in_poc_cycle; i++) {
             sps->offset_for_ref_frame[i] = read_se(br);
         }
 
@@ -228,7 +228,7 @@ int decode_sps(Undo264Context *ctx) {
     sps->bit_depth_luma             = sps->bit_depth_luma_minus8 + 8;
     sps->bit_depth_chroma           = sps->bit_depth_chroma_minus8 + 8;
     sps->log2_max_frame_num         = sps->log2_max_frame_num_minus4 + 4;
-    sps->log2_max_poc_lsb = sps->log2_max_poc_lsb_minus4 + 4;
+    sps->log2_max_poc_lsb           = sps->log2_max_poc_lsb_minus4 + 4;
     sps->pic_width_in_mbs           = sps->pic_width_in_mbs_minus1 + 1;
     sps->pic_height_in_map_units    =
         (sps->pic_height_in_map_units_minus1 + 1) * (2 - sps->frame_mbs_only_flag);
@@ -254,7 +254,6 @@ int decode_pps(Undo264Context *ctx) {
 
     pps->pps_id = read_ue(br);
     if (pps->pps_id > MAX_PPS_COUNT) {
-        free(pps);
         DEC_FAIL(ctx, UNDO_ERR_BITSTREAM, "pps id out of range 0-%d: %d\n", MAX_PPS_COUNT, pps->pps_id);
     }
 
@@ -343,51 +342,50 @@ int decode_pps(Undo264Context *ctx) {
 /* E.1.1 */
 int decode_vui (SPS *sps, Undo264Context *ctx) {
     BitReader *br = ctx->br;
+    VUI *vui = &sps->vui;
 
     /* not used for now, just necessary parsing for bitreader alignement with the reference decoder */
 
-    int aspect_ratio_present_flag = read_u(br, 1);
+    vui->aspect_ratio_info_present_flag = read_u(br, 1);
 
-    if (aspect_ratio_present_flag) {
-        int aspect_ratio_idc = read_u(br, 8);
-
+    if (vui->aspect_ratio_info_present_flag) {
+        vui->aspect_ratio_idc = read_u(br, 8);
     }
 
 
     int overscan_info_present_flag = read_u(br, 1);
     if (overscan_info_present_flag) {
-        int overscan_appropriate_flag = read_u(br, 1);
-
+        vui->overscan_appropriate_flag = read_u(br, 1);
     }
 
 
-    int video_signal_type_present_flag = read_u(br, 1);
-    if (video_signal_type_present_flag) {
-        int video_format = read_u(br, 3);
-        int video_full_range_flag = read_u(br, 1);
-        int color_description_present_flag = read_u(br, 1);
-        if (color_description_present_flag) {
-            int color_primaries = read_u(br, 8);
-            int transfer_characteristics = read_u(br, 8);
-            int matrix_coeffs = read_u(br, 8);
+    vui->video_signal_type_present_flag = read_u(br, 1);
+    if (vui->video_signal_type_present_flag) {
+        vui->video_format = read_u(br, 3);
+        vui->video_full_range_flag = read_u(br, 1);
+        vui->colour_description_present_flag = read_u(br, 1);
+        if (vui->colour_description_present_flag) {
+            vui->colour_primaries = read_u(br, 8);
+            vui->transfer_characteristics = read_u(br, 8);
+            vui->matrix_coefficients = read_u(br, 8);
         }
     }
 
-    int chroma_loc_info_present_flag = read_u(br, 1);
-    if (chroma_loc_info_present_flag) {
-        uint32_t chroma_sample_loc_type_top_field = read_ue(br);
-        uint32_t chroma_sample_log_tyep_bottom_field = read_ue(br);
+    vui->chroma_loc_info_present_flag = read_u(br, 1);
+    if (vui->chroma_loc_info_present_flag) {
+        vui->chroma_sample_loc_type_top_field = read_ue(br);
+        vui->chroma_sample_loc_type_bottom_field = read_ue(br);
     }
 
-    int timing_info_present_flag = read_u(br, 1);
-    if (timing_info_present_flag) {
-        uint32_t num_units_in_ticks = read_u(br, 32);
-        uint32_t time_scale = read_u(br, 32);
-        uint32_t fixed_frame_rate_flag = read_u(br, 1);
+    vui->timing_info_present_flag = read_u(br, 1);
+    if (vui->timing_info_present_flag) {
+        vui->num_units_in_tick = read_u(br, 32);
+        vui->time_scale = read_u(br, 32);
+        vui->fixed_frame_rate_flag = read_u(br, 1);
     }
 
-    int nal_hrd_parameters_present_flag = read_u(br, 1);
-    if (nal_hrd_parameters_present_flag) {
+    vui->nal_hrd_parameters_present_flag = read_u(br, 1);
+    if (vui->nal_hrd_parameters_present_flag) {
         /* hrd_parameters() */
     }
 
@@ -398,19 +396,19 @@ int decode_vui (SPS *sps, Undo264Context *ctx) {
     }
 
 
-    if (nal_hrd_parameters_present_flag || vcl_hrd_parameters_present_flag) {
-        int low_delay_hrd_flag = read_u(br, 1);
+    if (vui->nal_hrd_parameters_present_flag || vcl_hrd_parameters_present_flag) {
+        vui->low_delay_hrd_flag = read_u(br, 1);
     }
 
-    int pic_struct_present_flag = read_u(br, 1);
-    int bitstream_restriction_flag = read_u(br, 1);
-    if (bitstream_restriction_flag) {
-        int mvs_over_pic_boundaries_flag = read_u(br, 1);
-        uint32_t max_bytes_per_pic_denom = read_ue(br);
-        uint32_t max_bits_per_mb_denom = read_ue(br);
-        uint32_t log2_max_mb_length_horizontal = read_ue(br);
-        uint32_t log2_max_mv_length_vertical = read_ue(br);
-        uint32_t max_num_reorder_frames = read_ue(br);
+    vui->pic_struct_present_flag = read_u(br, 1);
+    vui->bitstream_restriction_flag = read_u(br, 1);
+    if (vui->bitstream_restriction_flag) {
+        vui->motion_vectors_over_pic_boundaries_flag = read_u(br, 1);
+        vui->max_bytes_per_pic_denom = read_ue(br);
+        vui->max_bits_per_mb_denom = read_ue(br);
+        vui->log2_max_mv_length_horizontal = read_ue(br);
+        vui->log2_max_mv_length_vertical = read_ue(br);
+        vui->max_num_reorder_frames = read_ue(br);
         sps->max_dec_frame_buffering = read_ue(br);
     }
 
