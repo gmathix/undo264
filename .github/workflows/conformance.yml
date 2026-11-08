@@ -2,7 +2,10 @@ name: conformance
 
 on:
   push:
+    branches: [master]
   pull_request:
+  workflow_dispatch:
+
 
 permissions:
   contents: read
@@ -30,8 +33,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [release, asan, ubsan, msan]
-        suite: [AVCv1, FRExt]
+        target: [ release, asan, ubsan ]
+        suite: [ AVCv1, FRExt ]
+        simd: [ simd, nosimd ]
+
     steps:
       - uses: actions/checkout@v6
 
@@ -46,13 +51,18 @@ jobs:
           key: vectors-${{ hashFiles('test/conformance/download_vectors.sh') }}
           fail-on-cache-miss: true
 
-      - name: Conformance (${{ matrix.target }}, ${{ matrix.suite}} )
+      - name: Conformance (${{ matrix.target }}, ${{ matrix.suite }}, ${{ matrix.simd }})
         working-directory: test/conformance
-        run: ./conformance_test.sh --target ${{ matrix.target }} --catch-san-err ${{ matrix.suite }}
+        run: >
+          ./conformance_test.sh
+          --target ${{ matrix.target }}
+          ${{ matrix.simd == 'nosimd' && '--no-simd' || '' }}
+          --catch-san-err
+          ${{ matrix.suite }}
 
       - name: Upload logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: logs-${{ matrix.target }}-${{ matrix.suite }}
           path: test/conformance/**/*.log

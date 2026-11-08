@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Usage: ./conformance_test.sh [--target <list>] [--catch-san-err] <input_dir>
+# Usage: ./conformance_test.sh [--target <list>] [--no-simd] [--catch-san-err] <input_dir>
 #   <input_dir>        e.g. AVCv1/ or FRExt/
 #   --target <list>    release (default) | asan | ubsan | msan | all, or a comma-separated list (e.g. release,asan)
 #   --catch-san-err    sanitizer errors make the script exit with 2 (they are always reported)
+#   --no-simd          pass --no-simd to undo264 to disable SIMD functions
 #
 # The selected targets are built first (build/<target>/undo264). For each subdirectory of <input_dir>,
 # each target decodes the bitstream, and the output is compared with the reference .yuv
@@ -18,6 +19,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TARGETS=(release)
 CATCH_SAN=0
 INPUT_DIR=""
+DEC_ARGS=()
 
 usage() {
     echo "Usage: $0 [--target release|asan|ubsan|msan|all[,...]] [--catch-san-err] <input_dir>" >&2
@@ -32,6 +34,7 @@ while [[ $# -gt 0 ]]; do
             IFS=, read -ra TARGETS <<< "$val"
             shift 2 ;;
         --catch-san-err) CATCH_SAN=1; shift ;;
+        --no-simd) DEC_ARGS+=(--no-simd); shift ;;
         -*) usage ;;
         *) INPUT_DIR="$1"; shift ;;
     esac
@@ -142,7 +145,7 @@ while IFS= read -r -d '' subdir; do
 
     for t in "${TARGETS[@]}"; do
         out="${subdir}/${name}_${t}_undo264.yuv"
-        "$ROOT/build/$t/undo264" -i "$bitstream" -o "$out" > "${subdir}/${name}_${t}_undo264.log" 2>&1
+        "$ROOT/build/$t/undo264" -i "$bitstream" -o "$out" "${DEC_ARGS[@]}" > "${subdir}/${name}_${t}_undo264.log" 2>&1
         ret=$?
 
         if [[ $ret -eq 3 ]]; then
