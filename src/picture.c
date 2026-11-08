@@ -134,7 +134,6 @@ void dump_picture(Picture *p, const Undo264Context *ctx) {
     int top    = ctx->ps->sps->crop_top_offset;
     int bottom = ctx->ps->sps->crop_bottom_offset;
     int left   = ctx->ps->sps->crop_left_offset;
-    int right  = ctx->ps->sps->crop_right_offset;
 
 
     for (int i = top; i < p->heightY - bottom; i++) {
