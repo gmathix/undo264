@@ -355,8 +355,7 @@ int CAFUNC(read_ref_idx,
          *
          * oh wow you're still reading this! you'd better go read mvpred.h to learn something about over-duplication
          * I'm still hyped because I'm writing this while watching the working decoded video over and over again asfdk;ljasf
-         * so aslkdf sorry if i'm writing bullshit asklfj sakf saklf but my hands asldkfj are shaking ahdhahahahahah
-         * i'm so fucking happy
+         * i'm so happy
          *
          *
          * mathis
