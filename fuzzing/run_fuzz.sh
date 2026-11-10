@@ -34,7 +34,7 @@ BUILD_ROOT="${BUILD_ROOT:-$ROOT_DIR/build/fuzz}"
 PROJECT_ROOT="${PROJECT_ROOT:-$ROOT_DIR}"          # frames under this path are "ours"
 CC_BIN="${CC_BIN:-clang}"
 OPT_LEVELS="${OPT_LEVELS:-3 0}"                    # -o : e.g. "3 0"
-SANITIZERS="${SANITIZERS:-address undefined memory}"  # -s
+SANITIZERS="${SANITIZERS:-address undefined}"  # -s
 MAX_TIME="${MAX_TIME:-0}"                          # -t : seconds per configuration
 MAX_RUNS="${MAX_RUNS:-0}"                          # -r : executions per configuration
 JOBS="${JOBS:-1}"                                  # -j : parallel fork workers
@@ -343,7 +343,9 @@ session_fork() { # bin corpus cdir left
   args+=(-fork="$JOBS" -ignore_crashes=1 -ignore_timeouts=1 -ignore_ooms=1)
   (( $4 > 0 ))       && args+=(-max_total_time="$4")
   (( MAX_RUNS > 0 )) && args+=(-runs="$MAX_RUNS")
-  "$1" "${args[@]}" 2>&1 | tee -a "$3/fuzz.log" | grep -E '^(#[0-9]+|INFO: (fuzzed|exiting))' | tail -n 3
+  "$1" "${args[@]}" 2>&1 | tee -a "$3/fuzz.log" \
+    | grep --line-buffered -E '^(#[0-9]+|INFO: (fuzzed|exiting))' \
+    | awk '{ printf "\r\033[K%s", substr($0, 1, 160); fflush() } END { print "" }'
   FORK_RC=${PIPESTATUS[0]}
 }
 

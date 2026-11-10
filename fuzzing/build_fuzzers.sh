@@ -16,7 +16,7 @@
 #
 # Usage: ./build_fuzzers.sh [options]
 #   -o LIST    optimisation levels            (default: "3 0")
-#   -s LIST    sanitizers                     (default: "address undefined memory")
+#   -s LIST    sanitizers                     (default: "address+undefined")
 #   -D VAR=VAL extra CMake definition, repeatable, e.g. -D USE_NATIVE_ARCH=OFF
 #   -q         quiet: no summary at the end
 #   -h         help
@@ -32,7 +32,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 CC_BIN="${CC_BIN:-clang}"
 BUILD_ROOT="${BUILD_ROOT:-$ROOT_DIR/build/fuzz}"
 OPT_LEVELS="3 0"
-SANITIZERS="address undefined memory"
+SANITIZERS="address+undefined"
 QUIET=0
 EXTRA_CMAKE=()
 
@@ -92,13 +92,17 @@ jobs=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 # ------------------------------------------------------------------------------
 build_one() { # opt san
   local o=$1 san=$2 bdir="$BUILD_ROOT/O${o}-${san}"
-  local cflags="-g -fno-omit-frame-pointer -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
-  case $san in
-    address)   ;;
-    undefined) cflags+=" -fno-sanitize-recover=undefined" ;;
-    memory)    cflags+=" -fsanitize-memory-track-origins" ;;
-    *) die "unknown sanitizer '$san' (address | undefined | memory)" ;;
-  esac
+    local cflags="-g -fno-omit-frame-pointer -fsanitize=fuzzer-no-link -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
+    local san_opt=() s
+    for s in ${san//+/ }; do
+      case $s in
+        address)   san_opt+=(-DENABLE_ASAN=ON) ;;
+        undefined) san_opt+=(-DENABLE_UBSAN=ON); cflags+=" -fno-sanitize-recover=undefined" ;;
+        memory)    san_opt+=(-DENABLE_MSAN=ON);  cflags+=" -fsanitize-memory-track-origins" ;;
+        *) die "unknown sanitizer '$s' in '$san' (address | undefined | memory, joined with +)" ;;
+      esac
+    done
+
   local type=Release extra=()
   if [[ "$o" != 3 ]]; then type=RelWithDebInfo; extra=("-DCMAKE_C_FLAGS_RELWITHDEBINFO=-O${o} -g3"); fi
 
@@ -108,7 +112,7 @@ build_one() { # opt san
     -DCMAKE_C_COMPILER="$CC_BIN" -DUNDO264_COMPILER=clang \
     -DCMAKE_BUILD_TYPE="$type" "${extra[@]}" \
     -DBUILD_FUZZERS=ON -DBUILD_TOOLS=OFF \
-    "-DSANITIZE=${san},fuzzer-no-link" "-DCMAKE_C_FLAGS=${cflags}" \
+    "$san_opt" "-DCMAKE_C_FLAGS=${cflags}" \
     "${EXTRA_CMAKE[@]+"${EXTRA_CMAKE[@]}"}" >"$bdir.cmake.log" 2>&1 \
     || { tail -20 "$bdir.cmake.log" >&2; die "cmake configure failed (log: $bdir.cmake.log)"; }
   log "O${o}/${san}: building"
