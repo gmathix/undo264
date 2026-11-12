@@ -10,7 +10,7 @@ Baseline profile, Main and High profile:
 - CABAC (Context-Adaptive Binary-Arithmetic Coding)
 - I/P/B slices
 - Weighted prediction
-- 8x8 transforms 
+- 8x8 transforms
 - Custom scaling lists
 - Deblocking filter
 - Memory management control operations (MMCOs)
@@ -29,14 +29,14 @@ Does and will not support :
 # Correctness and Testing
 
 Undo264 gives bit-exact output on all official ITU-T conformance bitstreams for Baseline, Main and High profiles
-(AVCv1 and FRExt suites), excluding bitstreams that are out of this decoder's scope. 
+(AVCv1 and FRExt suites), excluding bitstreams that are out of this decoder's scope.
 
-A script for downloading the AVCv1 (Baseline, Main) and FRExt (High) suites is available in the test/ folder, 
-as well as an automated script to run those test suites 
-and compare undo264's output either against given reference decoded files or against FFmpeg's H.264 decoder output, 
+A script for downloading the AVCv1 (Baseline, Main) and FRExt (High) suites is available in the test/ folder,
+as well as an automated script to run those test suites
+and compare undo264's output either against given reference decoded files or against FFmpeg's H.264 decoder output,
 which is supposed to be bit-exact.
 
-To run the test suites in the test/ folder : 
+To run the test suites in the test/ folder :
 ```shell
 chmod +x download_vectors.sh && chmod +x conformance_test.sh
 ./download_vectors.sh # may take a while to download and extract
@@ -46,7 +46,7 @@ chmod +x download_vectors.sh && chmod +x conformance_test.sh
 
 # Robustness
 
-Undo264 is not hardened against malformed or malicious bitstreams, though I'm currently running libFuzzer on it,
+Undo264 is not hardened against malformed or malicious bitstreams, though I'm currently running AFL++ on it,
 in order to find bugs and potential vulnerabilities (see **Fuzzing** section below).  
 As this is more of an educational project rather than a decoder intended for production, I will not fix everything
 the fuzzer finds. Instead, I will fix and document a few vulnerabilities, again, for educational purposes.
@@ -58,7 +58,7 @@ the fuzzer finds. Instead, I will fix and document a few vulnerabilities, again,
 
 ![benchmarks.png](test/benchmark/benchmarks.png)
 
-*Benchmark computed by medians of 5 runs for each of the 5 bitstreams 
+*Benchmark computed by medians of 5 runs for each of the 5 bitstreams
 (the Forza Horizon 5 trailer in 1080p, re-encoded with different profiles and settings for each set of runs)*
 
 Below is a table with the decoding speeds in FPS shown above :
@@ -72,13 +72,13 @@ Below is a table with the decoding speeds in FPS shown above :
 | FH5 Baseline no deblock |      114.3       |      140      |       139.7       |     176.4      |     356      |   377.4   |
 
 
-# Architecture 
+# Architecture
 
 ![architecture_diagram.png](architecture_diagram.png)  
 *Diagram describing the architecture of H.264 decoding*
 
 The SIMD/scalar functions dispatch is done at runtime, using a DSPContext structure that holds function pointers,
-allowing runtime dispatch with CPU features detection. 
+allowing runtime dispatch with CPU features detection.
 
 # Viewer
 
@@ -86,37 +86,37 @@ A viewer app written by Claude Sonnet 5.5 in Python lets you inspect H.264 strea
 in an intuitive UI.
 Below is a screenshot of the app in use with numbered callouts explaining how to use the app.  
 ![viewer/viewer_screenshot.png](viewer/viewer_screenshot.png)
-1. **Viewport with a selected macroblock**: clicking selects a macroblock and Ctrl+wheel and middle-drag zoom and pan.  
-2. **Motion Vectors**: red for MVs pointing to L0 (past) and blue for L1 (future). Can be toggled with M or the button 
-in the top toolbar.
-3. **Top toolbar**: Fit frame to the viewport (F), 1:1 frame ratio (1), draw MB grid (G), draw Slice boundaries (S), 
-and the MV length slider.
-4. **Stream Info tree (left dock)**: the SPS (Sequence Parameter Set), PPS (Picture Parameter Set), Frame Header and Slice Headers 
-of the current frame
+1. **Viewport with a selected macroblock**: clicking selects a macroblock and Ctrl+wheel and middle-drag zoom and pan.
+2. **Motion Vectors**: red for MVs pointing to L0 (past) and blue for L1 (future). Can be toggled with M or the button
+   in the top toolbar.
+3. **Top toolbar**: Fit frame to the viewport (F), 1:1 frame ratio (1), draw MB grid (G), draw Slice boundaries (S),
+   and the MV length slider.
+4. **Stream Info tree (left dock)**: the SPS (Sequence Parameter Set), PPS (Picture Parameter Set), Frame Header and Slice Headers
+   of the current frame
 5. **Decoder Picture Buffer (DPB) table (left dock)**: pictures are numbered using their decoded index. Click a reference
-to highlight the blocks in the current frame that use it, double-click to open its header and jump to it.
+   to highlight the blocks in the current frame that use it, double-click to open its header and jump to it.
 6. **Macroblock Inspector (right dock)**: type, QP, CBP, the partition map (click a partition) for both Intra and Inter
-macroblocks, and the motion vectors in quarter-pel and pixels.
+   macroblocks, and the motion vectors in quarter-pel and pixels.
 7. **Macroblock filters (right dock)**: they highlight macroblocks by type across the frame.
 8. **Transport bar**: with Play, Step, the slider, and return to the active frame after jumping to a
-reference frame.
+   reference frame.
 9. **Window menu**: to hide or reopen any dock.
 
-When an Inter macroblock is selected, Shift+Left peeks to the L0 reference block that it uses, by temporarily replacing the 
+When an Inter macroblock is selected, Shift+Left peeks to the L0 reference block that it uses, by temporarily replacing the
 active frame with the reference frame. Shift+Right does the same for L1.
 More key controls are detailed in the Help>Controls dialog.
- 
+
 
 In order to run the app, a H.264 bitstream has to be decoded with undo264 using the ```--dump-info <out>.json``` option,
 that dumps the stream info necessary to the viewer.  
-Then, run:  
+Then, run:
 ```shell
 pip install -r viewer/requirements.txt
 python3 viewer/viewer.py
 ```
 
-One warning: the app indexes all frames in the video file before playing it, which is why I recommend you to use 
-short videos (no more than a few minutes) to save you memory, otherwise you will get a very large .json info file, 
+One warning: the app indexes all frames in the video file before playing it, which is why I recommend you to use
+short videos (no more than a few minutes) to save you memory, otherwise you will get a very large .json info file,
 and the viewer will consume a lot of memory.
 
 
@@ -177,8 +177,8 @@ Pass with `-D<option>=<value>` at configure time.
 | `ENABLE_MSAN`          | `OFF`     | Builds with MemorySanitizer. Requires Clang on Linux.                                               |
 | `BUILD_TOOLS`          | `ON`      | Also builds `gen_rgb_video` and `compare_streams`.                                                  |
 | `COPY_MINGW_RUNTIME`   | `OFF`     | MinGW only: copies the runtime DLLs next to the executables after building.                         |
-| `BUILD_FUZZERS`        | `OFF`     | Builds the `fuzz_decoder` libFuzzer target (needs Clang). See [Fuzzing](#fuzzing).                  |
-| `FUZZ_ENGINE`          | `-fsanitize=fuzzer` | Fuzzing engine flags, or `$LIB_FUZZING_ENGINE` under OSS-Fuzz/ClusterFuzzLite.            |
+| `BUILD_FUZZERS`        | `OFF`     | Builds the `fuzz_decoder` AFL++ target (needs `afl-clang-fast` as the C compiler). See [Fuzzing](#fuzzing). |
+| `FUZZ_ENGINE`          | `-fsanitize=fuzzer` | Fuzzing engine flags. With `afl-clang-fast` this links AFL++'s libFuzzer-compatible driver; also accepts `$LIB_FUZZING_ENGINE` under OSS-Fuzz/ClusterFuzzLite. |
 | `BUILD_REPLAY_TARGETS` | `OFF`     | Builds `replay_asan`, `replay_ubsan` and `replay_msan`, to replay crashes found by the fuzzers (needs Clang on Linux). |
 
 Notes:
@@ -246,20 +246,29 @@ cmake --install build/release --prefix /usr/local
 # Fuzzing
 
 There are numerous ways to fuzz video decoding software like undo264, so feel free to run your own fuzzing setup on it if you want to.
-Still, I wrote fuzzing workflow scripts using AI to automate building and running different fuzz targets, 
-as well as automatically generate bug category reports to make it easier to sort, replay, and fix bugs. 
+Still, I wrote fuzzing workflow scripts using AI to automate building and running the fuzz targets with [AFL++](https://github.com/AFLplusplus/AFLplusplus),
+as well as automatically generate bug category reports to make it easier to sort, replay, and fix bugs.
 
 Example commands given below should be run in the fuzzing/ directory.
 
 ## Building fuzzers
 
-Fuzzing scripts that use [libFuzzer](https://llvm.org/docs/LibFuzzer.html) are available in the fuzzing/ folder.  
-LibFuzzer is bundled into Clang, hence it is required in order to build and run the available scripts.  
-Fuzzing targets have separate executables for -O0 and -O3 optimization levels, as well as for sanitizers ASan, UBSan, and MSan.  
-For example, to build the fuzzing target for -O3 and ASan only :  
+**Requirements:** AFL++ built with LLVM mode (`afl-clang-fast` and `afl-fuzz` on your PATH), plus `llvm-symbolizer`
+for readable crash stack traces.
+
+The fuzz target is a standard `LLVMFuzzerTestOneInput` function (`fuzz_target.c`). `afl-clang-fast` links AFL++'s own
+libFuzzer-compatible driver (when it sees `-fsanitize=fuzzer`), so the same target runs in AFL++ persistent mode with no change.
+
+Two kinds of executables are built, in `build/afl/`:
+- `O3-address+undefined`: ASan + UBSan, slow but finds memory bugs and undefined behavior
+- `O3-none`: no sanitizer, fast, finds crashes and hangs
+
 ```bash
-./build_fuzzers.sh -o 3 -s address
+./build_fuzzers.sh                      # builds both
+./build_fuzzers.sh -s address+undefined # builds only the sanitizer one
 ```
+Options: `-o` optimisation levels (default `3`), `-s` sanitizer variants (default `"address+undefined none"`; a variant is
+`none` or any of `address`, `undefined`, `memory` joined with `+`), `-D VAR=VAL` extra CMake definition.
 
 ## Making seed corpora
 
@@ -269,64 +278,66 @@ The make_seed_corpus.sh script can search for H.264 bitstreams in given director
 output seed directory. It discards unsupported videos, because undo264 almost immediately exits with them,
 before decoding any slice. Therefore they are pointless to fuzz with, because it would consume precious fuzzing time.
 
-Example command to make a seed corpus from AVCv1 and FRExt, assuming they have been downloaded and extracted with the 
-script test/conformance/download_vectors.sh : 
+Example command to make a seed corpus from AVCv1 and FRExt, assuming they have been downloaded and extracted with the
+script test/conformance/download_vectors.sh :
 ```bash
 ./make_seed_corpus.sh seeds/ ../test/conformance/AVCv1 ../test/conformance/FRExt
 ```
 
 ## Running fuzzers
 
-### Manually
-
-Each binary is a normal libFuzzer executable: run it with a corpus directory, e.g.
-```bash
-mkdir -p crashes/O3/address/some_seeds_name/ corpus/
-build/fuzz/O3-address/fuzz_decoder \
-        corpus/ \  
-        seeds/ \  
-        -fork=4 \
-        -max_len=65536 \  
-        -timeout=10 \  
-        -rss_limit_mb=2048 \  
-        -runs=1000000 \  
-        -artifact_prefix=crashes/O3/address/some_seeds_name/ \ 
-        -dict=fuzz_decoder.dict \
-        -ignore_crashes=1
-```
-- ```corpus/```: where libFuzzer places inputs that increase coverage
-- ```seeds/```: seed video directory
-- ```-fork```: number of child processes to create 
-- ```-max_len```: truncation size in bytes of seed inputs
-- ```-timeout```: per-input execution time limit in seconds before calling a timeout
-- ```-rss_limib_mb```: per-input heap memory limit before calling OOM crash
-- ```-runs```: run 1000000 fuzzing iterations, alternatively use -max_total_time=N to run for N seconds
-- ```-artifact_prefix```: mutated files that caused a crash goes there
-- ```-dict```: optional, dictionary of "magic values". Recommended if fuzzing without a starting seed corpus
-- ```-ignore_crashes```: to avoid libFuzzer exiting when an input causes a crash (only when used with -fork=N)
-
-The available fuzz_decoder.dict dictionary contains start codes, NAL unit types, delimiters, etc.
-
 ### With fuzzing script
 
-The run_fuzz.sh script operates as follows : 
-1. Builds fuzz targets to run 
-2. Runs them so that OOM/timeouts/crashes do not stop the run 
-3. Replays crash artifacts one by one and extract their stack trace 
-4. Group crash artifacts by their stack trace and save results to report.md  
-  
-Example run that fuzzes the -O3 build with all ASan, UBSan, and MSan sanitizers: 
+The run_fuzz.sh script operates as follows :
+1. Builds the fuzz targets (skip with `-n`)
+2. Starts several `afl-fuzz` processes sharing one output directory: the first one is the main instance (`-M`),
+   the others are secondary instances (`-S`). They use the executables in turn, so the sanitizer build is the main instance
+   and the fast build runs alongside it. AFL++ saves crashes and hangs and keeps going, so the run is continuous
+3. When the run ends, replays every crash and hang with the ASan build and extracts its stack trace
+4. Groups them by stack trace and saves the results to report.md
+
+Example run :
 ```bash
-./run_fuzz.sh \ 
-  -t 300 \
-  -j 4 \
-  -S seeds \ 
-  -N AVCv1   
+./run_fuzz.sh -j 4 -S seeds -N AVCv1
 ```
-- ```-t 300```: run for 5 minutes for each target
-- ```-j 4```: fork in 4 separate child processes supervised by the parent process
+- ```-j 4```: run 4 `afl-fuzz` processes
 - ```-S seeds/```: input seeds directory
-- ```-N AVCv1_and_FRExt```: seeds collection name, used for naming the run directory
+- ```-N AVCv1```: run name. Re-using a name resumes that run (same queue) instead of starting a new one
+- ```-t SEC```: optional, stop after SEC seconds. By default (`-t 0`) it runs until Ctrl-C, then triage starts
+- ```-R```: triage only. Regenerates the report of the latest run (or of the run given with `-N`), even while it is still fuzzing
+
+Other options: `-o` optimisation levels, `-s` sanitizer variants (the first one is the main instance), `-n` do not build.
+`MAX_LEN` (default 65536 bytes) and `TIMEOUT_MS` (default 2000 ms, slower inputs count as hangs) can be set as environment variables.
+
+Results are in `findings/<run name>/`:
+- ```main/, s2/, s3/, ...```: one AFL++ output directory per instance, each with `queue/`, `crashes/` and `hangs/`
+- ```main.log, s2.log, ...```: output of each `afl-fuzz` process
+- ```report.md```: crashes grouped by stack trace, with the smallest input of each group
+- ```triage/```: one replay log per crash, and one `.stack` file per group
+
+For best performance on Linux, run `echo core | sudo tee /proc/sys/kernel/core_pattern` once.
+The script sets the AFL++ variables that let it start without it, but crash handling is faster this way.
+
+### Manually
+
+Each executable is a normal AFL++ target: run it with `afl-fuzz`, e.g.
+```bash
+AFL_AUTORESUME=1 ASAN_OPTIONS=abort_on_error=1:detect_leaks=0:symbolize=0 \
+afl-fuzz -i seeds/ -o findings/manual -m none -t 2000+ -G 65536 \
+        -x fuzz_decoder.dict \
+        -- ../build/afl/O3-address+undefined/fuzz_decoder
+```
+- ```-i seeds/```: seed video directory
+- ```-o findings/manual```: output directory (queue, crashes and hangs)
+- ```-m none```: no memory limit (ASan needs this)
+- ```-t 2000+```: per-input time limit in ms before calling a hang (the `+` skips slow seeds instead of aborting)
+- ```-G 65536```: maximum input size in bytes
+- ```-x```: optional, dictionary of "magic values". Recommended if fuzzing without a starting seed corpus
+- ```-M main``` / ```-S name```: add one of these, with a different name for each process, to run several in parallel
+
+Replay a crash with the same executable: `../build/afl/O3-address+undefined/fuzz_decoder findings/manual/default/crashes/id:000000,...`
+
+The available fuzz_decoder.dict dictionary contains start codes, NAL unit types, delimiters, etc.
 
 
 # License
