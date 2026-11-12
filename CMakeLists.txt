@@ -17,6 +17,10 @@
 #   ENABLE_MSAN        OFF (default): MemorySanitizer (Clang + Linux only, exclusive with ASan)
 #   BUILD_TOOLS        ON (default): also build gen_rgb_video / compare_streams
 #   COPY_MINGW_RUNTIME OFF (default): MinGW only, copy runtime DLLs next to the .exes
+#   BUILD_FUZZERS      OFF (default): build the fuzz_decoder target for AFL++. Configure with
+#                      -DCMAKE_C_COMPILER=afl-clang-fast -DUNDO264_COMPILER=clang
+#                      (fuzzing/build_fuzzers.sh does this for you)
+#   FUZZ_ENGINE        -fsanitize=fuzzer (default): link flags of the fuzzing engine
 # ==============================================================================
 
 cmake_minimum_required(VERSION 3.20)
@@ -72,8 +76,10 @@ endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
+# With afl-clang-fast, -fsanitize=fuzzer links AFL++'s own libFuzzer-compatible driver
+# (persistent mode), so fuzz_target.c runs unchanged. With plain clang it is libFuzzer.
 set(FUZZ_ENGINE "-fsanitize=fuzzer" CACHE STRING
-        "Fuzzing engine: -fsanitize=fuzzer, or $LIB_FUZZING_ENGINE under OSS-Fuzz/ClusterFuzzLite")
+        "Fuzzing engine: -fsanitize=fuzzer (AFL++ via afl-clang-fast, or libFuzzer via clang), or $LIB_FUZZING_ENGINE under OSS-Fuzz/ClusterFuzzLite")
 
 
 # default to a sane build type if none is given (for makefile/ninja only)
@@ -89,7 +95,7 @@ option(ENABLE_UBSAN "Build with UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_MSAN  "Build with MemorySanitizer (Clang on Linux only; exclusive with ASan)" OFF)
 option(BUILD_TOOLS "Build gen_rgb_video / compare_streams helper tools" ON)
 option(COPY_MINGW_RUNTIME "MinGW: copy runtime DLLs next to the executables after building" OFF)
-option(BUILD_FUZZERS "Build the fuzz target (needs clang for libFuzzer)" OFF)
+option(BUILD_FUZZERS "Build the fuzz_decoder target for AFL++ (needs afl-clang-fast as the C compiler)" OFF)
 option(BUILD_REPLAY_TARGETS "Build replay_asan / replay_ubsan / replay_msan (one sanitizer each; Clang on Linux)" OFF)
 
 
@@ -240,6 +246,11 @@ undo264_copy_mingw_runtime(undo264)
 
 
 if(BUILD_FUZZERS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "BUILD_FUZZERS needs Clang (use -DCMAKE_C_COMPILER=afl-clang-fast "
+                "-DUNDO264_COMPILER=clang in a fresh build directory, or run fuzzing/build_fuzzers.sh).")
+    endif()
+    # afl-clang-fast instruments every source it compiles, so undo264_core is instrumented too
     add_executable(fuzz_decoder fuzzing/fuzz_target.c)
     separate_arguments(_fuzz_engine UNIX_COMMAND "${FUZZ_ENGINE}")
     target_link_libraries(fuzz_decoder PRIVATE undo264_core ${_fuzz_engine})
